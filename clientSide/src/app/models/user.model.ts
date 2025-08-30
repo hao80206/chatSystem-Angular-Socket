@@ -3,10 +3,10 @@ export class User {
     username: string;
     email: string;
     password: string;
-    role: 'user' | 'group_admin' | 'super_admin';
+    role: string[];  // ['USER'], ['GROUP_ADMIN'], ['SUPER_ADMIN']
     groups: number[];
   
-    constructor(id: string, username: string, email: string, password: string, role: 'user' | 'group_admin' | 'super_admin', groups: number[] = []) {
+    constructor(id: string, username: string, email: string, password: string, role: string[]=[], groups: number[] = []) {
       this.id = id;
       this.username = username;
       this.email = email;
