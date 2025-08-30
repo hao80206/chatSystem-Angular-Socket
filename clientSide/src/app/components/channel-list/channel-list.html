@@ -1,0 +1,17 @@
+<app-navbar></app-navbar>
+
+<div class="channel-container">
+    <h4 class="mb-4">Channels in Group {{ groupId }}</h4>
+  
+    <div class="channel-grid">
+      <div class="channel-card" *ngFor="let channel of channels">
+        <!-- channel image -->
+        <img [src]="'assets/Channels/' + channel.name + '.png'" 
+             class="channel-image" 
+             alt="{{ channel.name }}">
+  
+        <div class="channel-name">{{ channel.name }}</div>
+        <button class="channel-button">Open</button>
+      </div>
+    </div>
+  </div>

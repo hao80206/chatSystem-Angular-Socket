@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="./dashboard.css">
+</head>
+<body>
+    <app-navbar></app-navbar>
+
+    <div class="dashboard-container">
+        <h3 class = "heading">Welcome, User!  Your Groups are shown below!</h3>
+
+       <div class="group-grid">
+        <div class="group-card" *ngFor="let group of groups">
+          
+          <button class="group-button" [routerLink]="['/group', group.id, 'channels']">
+            <img [src]="'assets/Flowers/' + getImageFile(group.name)" alt="{{ group.name }}">
+            <p class = "group-name">{{ group.name }}</p>
+          </button>
+        </div>
+      </div>
+      </div>
+</body>
+</html>

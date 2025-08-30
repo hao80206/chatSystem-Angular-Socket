@@ -1,0 +1,44 @@
+/* You can add global styles to this file, and also import other style files */
+/* Primary theme colors */
+:root {
+    --primary-color: #007bff;  /* blue */
+    --secondary-color: #f8f9fa; /* light gray */
+    --accent-color: #ffd700; /* gold */
+  }
+  
+  /* Body styling */
+  body {
+    background-color: var(--secondary-color);
+    font-family: Arial, sans-serif;
+    margin: 40;
+    padding: 0;
+  }
+  
+  /* Card shadow */
+  .card {
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  }
+  
+  /* Buttons */
+  .btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+  }
+  
+  .btn-primary:hover {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+  }
+  
+  /* Form inputs */
+  input.form-control {
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+  }
+  
+  input.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+  }
+  

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Page</title>
+</head>
+<body>
+    <app-navbar></app-navbar>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+          <div class="col-md-4">
+            <h3 class="text-center">Login</h3>
+            <form>
+              <div class="form">
+                <label>Username: </label>
+                <input #usernameInput type="text" class="form-control" placeholder="Enter username">
+              </div>
+              <div class="form">
+                <label>Password: </label>
+                <input #passwordInput type="password" class="form-control" placeholder="Enter password">
+              </div>
+              <button class="button" (click)="login(usernameInput.value, passwordInput.value)">Login</button>
+            </form>
+          </div>
+        </div>
+      </div> 
+</body>
+</html>

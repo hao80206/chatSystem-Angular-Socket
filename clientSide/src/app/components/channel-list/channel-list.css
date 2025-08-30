@@ -1,0 +1,65 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+    background-color: #f7f7f7;
+  }
+
+  .mb-4 {
+    font-size: 30px;
+  }
+  
+  .channel-container {
+    text-align: center;
+    padding: 30px;
+  }
+  
+  .channel-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 20px;
+  }
+  
+  .channel-card {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    width: 300px; /* same width as login form */
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: transform 0.2s;
+  }
+  
+  .channel-card:hover {
+    transform: scale(1.05);
+  }
+  
+  .channel-image {
+    width: 200px;
+    height: 200px;
+    object-fit: contain;
+    margin-bottom: 15px;
+  }
+  
+  .channel-name {
+    margin: 10px 0;
+    font-size: 25px;
+    color: #2b5d7a; /* pastel/cold tone */
+  }
+  
+  .channel-button {
+    margin-top: 10px;
+    padding: 10px 20px;
+    background-color: #8ebddd;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .channel-button:hover {
+    background-color: #2980b9;
+    transform: scale(1.2);
+  }
+  

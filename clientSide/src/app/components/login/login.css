@@ -1,0 +1,58 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+    background-color: #f7f7f7;
+    align-items: center;
+}
+
+form {
+    background-color: #fff;
+    align-self: center;
+    padding: 20px;
+    border-radius: 8px;
+    width: 300px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+label {
+    display: block;
+    margin-top: 10px;
+}
+
+input {
+    width: 100%;
+    padding: 8px;
+    margin-top: 4px;
+    box-sizing: border-box;
+}
+
+button {
+    margin-top: 15px;
+    padding: 10px 20px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.hidemessage {
+    display: none;
+}
+
+.showmessage {
+    display: block;
+    padding: 10px;
+    margin-top: 15px;
+    border-radius: 5px;
+}
+
+#errormsg {
+    background-color: #ffcccc; /* red for error */
+    color: red;
+}
+
+#successmsg {
+    background-color: #ccffcc; /* green for success */
+    color: green;
+}

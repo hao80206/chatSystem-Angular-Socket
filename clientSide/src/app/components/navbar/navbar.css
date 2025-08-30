@@ -1,0 +1,29 @@
+.navbar-pastel {
+    background-color: #c6f5d0; /* pastel green */
+    padding: 15px 30px;
+}
+
+.navbar-brand {
+    font-size: 1.8rem;
+    margin-top: 30px;
+    padding-bottom: 30px;
+    font-weight: bold;
+    color: black;
+    -webkit-text-stroke: 1px black; /* black outline */
+    text-decoration: none;
+}
+
+.nav-links .nav-link {
+    font-size: 1.3rem;
+    color: #2b5d7a;
+    font-weight: 500;
+    text-decoration: none;
+    margin-left: 30px; /* space between buttons */
+    margin-top: 30px;
+    transition: color 0.2s, transform 0.2s;
+}
+
+.nav-links .nav-link:hover {
+    color: #90c3d4;
+    transform: scale(1.05);
+}
