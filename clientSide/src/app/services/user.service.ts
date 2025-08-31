@@ -39,14 +39,9 @@ export class UserService {
       this.dummyUsers.push(newUser);
       return true;
     }
-      return false //username must be unique
+      console.error("username must be unique");
+      return false
   };
-
-  joinGroup(user: User, groupId: number) {
-    if (!user.groups.includes(groupId)) {
-      user.groups.push(groupId);
-    }
-  }
 
   leaveGroup(user: User, groupId: number) {
     user.groups = user.groups.filter(g => g !== groupId)
@@ -62,13 +57,13 @@ export class UserService {
 
 // ----------- BOTH SUPER AND GROUP ADMINISTRATOR ----------- //
 
-//promote chat user to GROUP_ADMIN
-  promoteToGroupAdmin(user: User, groupId: number) {
-    if (!user.role.includes('GROUP_ADMIN')) {
-      user.role.push('GROUP_ADMIN');
-    }
+  createGroup(groupId: number, user: User) {
+    // Assign the group to the user as admin
     if (!user.groups.includes(groupId)) {
-      user.groups.push(groupId);
+      user.groups.push(groupId)
+    };
+    if (!user.role.includes('GROUP_ADMIN')) {
+      user.role.push('GROUP_ADMIN')
     }
   }
 
@@ -87,17 +82,42 @@ export class UserService {
     }
   }
 
-  reportToSuper(){
-
+  // ----------- SUPER ADMINISTRATOR ----------- //
+  promoteToGroupAdmin(user: User, groupId: number) {
+    if (!user.role.includes('GROUP_ADMIN')) {
+      user.role.push('GROUP_ADMIN')
+    };
+    if (!user.groups.includes(groupId)) {
+      user.groups.push(groupId)
+    };
   }
 
-  //promote chat user to SUPER_ADMIN
+  removeUser(user: User) {
+    this.dummyUsers = this.dummyUsers.filter(u => u.id !== user.id);
+    if (this.currentUser?.id === user.id) this.logout();
+  }
+
   upgradeToSuper(user: User) {
     if (!user.role.includes('SUPER_ADMIN')) user.role.push('SUPER_ADMIN');
   }
 
-  // ----------- SUPER ADMINISTRATOR ----------- //
-  
+  // -------- Helpers -------- //
+  getAllUsers(): User[] {
+    return this.dummyUsers;
+  }
 
+  isSuperAdmin(u: User | null): boolean {
+    return !!u && u.role.includes('SUPER_ADMIN');
+  }
 
+  isGroupAdmin(u: User | null): boolean {
+    return !!u && u.role.includes('GROUP_ADMIN');
+  }
+
+  // Can this user manage a given group? (SUPER can manage all, GROUP_ADMIN only their groups)
+  private canManageGroup(u: User | null, groupId: number): boolean {
+    if (!u) return false;
+    if (u.role.includes('SUPER_ADMIN')) return true;
+    return u.role.includes('GROUP_ADMIN') && u.groups.includes(groupId);
+  }
 }

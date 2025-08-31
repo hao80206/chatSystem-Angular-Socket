@@ -4,6 +4,8 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Navbar } from '../navbar/navbar';
 import { UserService } from '../../services/user.service';
+import { Group } from '../../models/group.model';
+import { GroupService } from '../../services/group.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -13,30 +15,18 @@ import { UserService } from '../../services/user.service';
 })
 
 export class Dashboard implements OnInit {
-  userGroups: any[] = [];
-  groups = [
-    {id: 1, name: 'Group1 - Tulip'},
-    {id: 2, name: 'Group2 - Calendula'},
-    {id: 3, name: 'Group3 - Lavender'},
-    {id: 4, name: 'Group4 - Lily'},
-    {id: 5, name: 'Group5 - Marigold'},
-    {id: 6, name: 'Group6 - Rose'},
-    {id: 7, name: 'Group7 - Jasmine'}
-  ];
 
-  constructor(public userService: UserService) { }
+  userGroups: Group[] = [];
+  constructor(public userService: UserService, public groupService: GroupService) { }
 
   ngOnInit(): void {
     const currentUser = this.userService.getCurrentUser();
-    console.log('Current User:', currentUser);
-  
-    this.groups.forEach(group => {
-      console.log('Group ID type:', typeof group.id, 'Value:', group.id);
-    });
-  
+    const allGroups = this.groupService.getGroups();
+
     if (currentUser) {
-      this.userGroups = this.groups.filter(group => currentUser.groups.includes(group.id));
-      console.log('Filtered Groups:', this.userGroups);
+      this.userGroups = allGroups.filter(group =>
+        currentUser.groups.includes(group.id)
+      );
     }
   }
 
