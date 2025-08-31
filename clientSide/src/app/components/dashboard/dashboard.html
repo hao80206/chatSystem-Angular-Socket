@@ -11,16 +11,49 @@
 
     <div class="dashboard-container">
         <h3 class = "heading">Welcome, {{ userService.getCurrentUser()?.username }}!  Your Groups are</h3>
+        <!-- Show SUPER_ADMIN message -->
+        <div *ngIf="userService.getCurrentUser()?.role?.includes('SUPER_ADMIN')" class="super-admin-msg">
+          You're Super administrator, you can access all groups and channels
+        </div>
 
-       <div class="group-grid">
-        <div class="group-card" *ngFor="let group of userGroups">
-          
-          <button class="group-button" [routerLink]="['/group', group.id, 'channels']">
-            <img [src]="'assets/Flowers/' + getImageFile(group.name)" alt="{{ group.name }}">
-            <p class = "group-name">{{ group.name }}</p>
-          </button>
+        
+        <div class="group-grid">
+          <div class="group-card" *ngFor="let group of userGroups">
+            
+            <!-- show per-group admin message -->
+            <div class="admin-message" *ngIf="isGroupAdminOf(group)">
+              Group Administrator of
+            </div>
+
+          <img [src]="'assets/Flowers/' + getImageFile(group.name)" alt="{{ group.name }}">
+          <p class = "group-name">{{ group.name }}</p>
+
+          <button class="group-button" [routerLink]="['/group', group.id, 'channels']">Look</button>
         </div>
       </div>
-      </div>
+
+      <!-- Create group button + form (visible only to admins) -->
+     <div class="create-group-area" *ngIf="canCreateGroup()">
+       <h3 class="text-center">Create New Group</h3>
+       <form (ngSubmit)="createGroup(groupNameInput.value)">
+         <div class="form">
+           <label>Group Name: </label>
+           <input #groupNameInput type="text" class="form-control" placeholder="Enter group name">
+         </div>
+         <button class="button" type="submit">Create Group</button>
+       </form>
+     </div>
+
+
+        <h3 class = "heading">You may like ...?</h3>
+        <div class="group-grid">
+          <div class="group-card" *ngFor="let group of otherGroups">
+            
+            <img [src]="'assets/Flowers/' + getImageFile(group.name)" alt="{{ group.name }}">
+              <div class="group-name">{{ group.name }}</div>
+                <button class="register-button">Register</button>
+              </div>
+          </div>
+        </div>
 </body>
 </html>

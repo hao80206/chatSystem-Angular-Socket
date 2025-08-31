@@ -112,7 +112,7 @@ export class ChannelService {
       channel.bannedUsers.push(targetUserId);
       channel.members = channel.members.filter(id => id !== targetUserId);
     }
-    console.log("You joined new channel:", channel.name)
+    console.log("You banned user from this channel:", channel.name)
     return true;
   }
 

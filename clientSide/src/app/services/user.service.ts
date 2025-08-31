@@ -1,19 +1,25 @@
 import { Injectable } from '@angular/core';
 import { User } from '../models/user.model';
+import { ChannelService } from './channel.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class UserService {
   dummyUsers: User[] = [
-    { id: '1', username: 'Alice', email: 'alice@mail.com', password: '123', role: ['USER'], groups: [1,2] },
-    { id: '2', username: 'Bob', email: 'bob@mail.com', password: '123', role: ['GROUP_ADMIN'], groups: [2,3] },
-    { id: '3', username: 'Super', email: 'super@mail.com', password: '123', role: ['SUPER_ADMIN'], groups: [1,2,3,4] }
+    { id: '1', username: 'Alice', email: 'alice@mail.com', password: '123', role: ['USER'], groups: [1,2,5,7] },
+    { id: '2', username: 'Bob', email: 'bob@mail.com', password: '123', role: ['USER'], groups: [2,3,6,7] },
+    { id: '3', username: 'Kevin', email: 'kevin@mail.com', password: '123', role: ['USER'], groups: [1,4,6,7] },
+    { id: '4', username: 'Taylor', email: 'taylor@mail.com', password: '123', role: ['USER'], groups: [1,2,3,4] },
+    { id: '5', username: 'Stella', email: 'stella@mail.com', password: '123', role: ['GROUP_ADMIN'], groups: [1,3,4]},
+    { id: '6', username: 'Super', email: 'super@mail.com', password: '123', role: ['SUPER_ADMIN'], groups: [1,2,3,4,5,6,7] },
+
   ];
 
-// ----------- AUTHENTICATION ----------- //
-
   currentUser: User | null = null;
+  pendingGroupRequests: { userId: string, groupId: number }[] = [];
+
+// ----------- AUTHENTICATION ----------- //
 
   login(username: string, password: string): boolean {
     const user = this.dummyUsers.find(u => u.username === username && u.password === password);
@@ -43,8 +49,25 @@ export class UserService {
       return false
   };
 
+  joinChannel(user: User, channelId: number, channelService: ChannelService): boolean {
+    return channelService.joinChannel(user, channelId);
+  }
+
   leaveGroup(user: User, groupId: number) {
     user.groups = user.groups.filter(g => g !== groupId)
+  }
+
+  // Register interest for a group
+  registerNewGroup(user: User, groupId: number): boolean {
+    if (user.groups.includes(groupId)) return false; // already a member
+
+    const exists = this.pendingGroupRequests.some(r => r.userId === user.id && r.groupId === groupId);
+
+    if (exists) return false; 
+
+    this.pendingGroupRequests.push({ userId: user.id, groupId });
+    console.log("already requested")
+    return true;
   }
 
   deleteSelf(user: User) {
@@ -80,6 +103,17 @@ export class UserService {
     if (admin.role.includes('GROUP_ADMIN') && admin.groups.includes(groupId)) {
       user.groups = user.groups.filter(g => g !== groupId);
     }
+  }
+
+  letUserJoinGroup(user: User, groupId: number, admin: User): boolean {
+    if (!this.isGroupAdmin(admin) && !this.isSuperAdmin(admin)) return false;
+
+    const reqIndex = this.pendingGroupRequests.findIndex(r => r.userId === user.id && r.groupId === groupId);
+    if (reqIndex === -1) return false;
+
+    user.groups.push(groupId);
+    this.pendingGroupRequests.splice(reqIndex, 1);
+    return true;
   }
 
   // ----------- SUPER ADMINISTRATOR ----------- //
