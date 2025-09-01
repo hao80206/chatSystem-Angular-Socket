@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule} from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { Navbar } from '../navbar/navbar';
 import { UserService } from '../../services/user.service';
 import { Group } from '../../models/group.model';
@@ -23,7 +23,7 @@ export class Dashboard implements OnInit {
   showCreateForm = false;
   newGroupName = '';
 
-  constructor(public userService: UserService, public groupService: GroupService) { }
+  constructor(public userService: UserService, public groupService: GroupService, public router: Router) { }
 
   ngOnInit(): void {
     const currentUser = this.userService.getCurrentUser();
@@ -53,7 +53,7 @@ export class Dashboard implements OnInit {
   }
 
   // check if user is SUPER_ADMIN or GROUP_ADMIN (global helper)
-  canCreateGroup(): boolean {
+  canManageGroup(): boolean {
     const u = this.userService.getCurrentUser();
     return !!u && (u.role.includes('GROUP_ADMIN') || u.role.includes('SUPER_ADMIN'));
   }
@@ -70,6 +70,46 @@ export class Dashboard implements OnInit {
       console.log('Group created:', newGroup);
     } else {
       console.warn('Failed to create group.');
+    }
+  }
+
+  onDeleteGroup(groupId: number): void {
+    if (this.groupService.deleteGroup(groupId)) {
+      this.userGroups = this.userGroups.filter(g => g.id !== groupId);
+      console.log('Group deleted:', groupId);
+    }
+  }
+
+  onModifyGroup(groupId: number): void {
+    const newName = prompt('Enter new group name:');
+    if (newName && this.groupService.modifyGroup(groupId, newName)) {
+      // Refresh local userGroups to show updated name
+      this.userGroups = this.groupService.getAllGroups();
+      console.log('Group modified:', groupId, newName);
+    }
+  }
+
+  leaveGroup(groupId: number) {
+    const currentUser = this.userService.getCurrentUser();
+    if (!currentUser) return;
+  
+    this.userService.leaveGroup(currentUser, groupId);
+  
+    // Refresh the local userGroups array
+    this.userGroups = this.userGroups.filter(g => g.id !== groupId);
+    console.log('Left group:', groupId);
+  }
+
+  // Delete the logged-in user account
+  deleteAccount() {
+    const currentUser = this.userService.getCurrentUser();
+    if (!currentUser) return;
+
+    if (confirm("Are you sure you want to delete your account?")) {
+      this.userService.deleteSelf(currentUser);
+
+      // Navigate to login/register page
+      this.router.navigate(['/login']);
     }
   }
 }

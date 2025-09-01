@@ -7,6 +7,31 @@ body {
   .mb-4 {
     font-size: 30px;
   }
+
+  .user-list {
+    background-color: #bfd9eb;
+    width: 400px;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px auto;
+
+  }
+  .user-list span {
+    padding: 20px;
+    font-size: 20px;
+  }
+
+  .user-list button {
+    margin: 10px;
+    border-radius: 9px;
+    height: 25px;
+    border: none;
+    transition: 0.2s;
+  }
+
+  .user-list button:hover {
+    transform: scale(1.2);
+  }
   
   .channel-container {
     text-align: center;
@@ -28,6 +53,8 @@ body {
     width: 300px; /* same width as login form */
     box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     text-align: center;
+    align-items: center;
+    justify-content: center;
     transition: transform 0.2s;
   }
   
@@ -47,6 +74,10 @@ body {
     font-size: 25px;
     color: #2b5d7a; /* pastel/cold tone */
   }
+
+  .button-container button {
+    margin: 0 10px; /* equal spacing left and right */
+  }
   
   .channel-button {
     margin-top: 10px;
@@ -62,4 +93,48 @@ body {
     background-color: #2980b9;
     transform: scale(1.2);
   }
+
+  .create-new-channel {
+    background-color: rgb(178, 237, 217);
+    width: 60%;              
+    margin: 40px auto;      
+    padding: 20px;          
+    border-radius: 8px;      
+    display: flex;          
+    justify-content: center; 
+    flex-direction: column;
+    align-items: center;     /* center form vertically */
+  }
+
+  form {
+    background-color: #fff;
+    align-self: center;
+    padding: 20px;
+    border-radius: 8px;
+    width: 300px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+label {
+    display: block;
+    margin-top: 10px;
+}
+
+input {
+    width: 100%;
+    padding: 8px;
+    margin-top: 4px;
+    box-sizing: border-box;
+}
+
+.create-button {
+    margin-top: 15px;
+    padding: 10px 20px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
   

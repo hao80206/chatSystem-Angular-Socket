@@ -6,24 +6,46 @@
     <title>Login Page</title>
 </head>
 <body>
-    <app-navbar></app-navbar>
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-          <div class="col-md-4">
-            <h3 class="text-center">Login</h3>
-            <form>
-              <div class="form">
-                <label>Username: </label>
-                <input #usernameInput type="text" class="form-control" placeholder="Enter username">
-              </div>
-              <div class="form">
-                <label>Password: </label>
-                <input #passwordInput type="password" class="form-control" placeholder="Enter password">
-              </div>
-              <button class="button" (click)="login(usernameInput.value, passwordInput.value)">Login</button>
-            </form>
-          </div>
+  <app-navbar></app-navbar>
+  <div class="container">
+  
+    <!-- LOGIN FORM -->
+    <div class="login-form">
+      <h3 class="text-center">You already have an account?</h3>
+      <form #loginForm="ngForm" (ngSubmit)="login(loginUsername.value, loginPassword.value)">
+        <div class="form">
+          <label>Username: </label>
+          <input #loginUsername="ngModel" name="loginUsername" type="text" class="form-control" placeholder="Enter username" required ngModel>
         </div>
-      </div> 
+        <div class="form">
+          <label>Password: </label>
+          <input #loginPassword="ngModel" name="loginPassword" type="password" class="form-control" placeholder="Enter password" required ngModel>
+        </div>
+        <button type="submit" class="button">Login</button>
+      </form>
+    </div>
+  
+    <!-- REGISTER FORM -->
+    <div class="login-form">
+      <h3 class="text-center">You don't have an account?</h3>
+      <form #registerForm="ngForm" (ngSubmit)="register(registerUsername.value, registerEmail.value, registerPassword.value)">
+        <div class="form">
+          <label>Username: </label>
+          <input #registerUsername="ngModel" name="registerUsername" type="text" placeholder="Enter username" required ngModel>
+        </div>
+        <div class="form">
+          <label>Email: </label>
+          <input #registerEmail="ngModel" name="registerEmail" type="email" placeholder="Enter email" required ngModel>
+        </div>
+        <div class="form">
+          <label>Password: </label>
+          <input #registerPassword="ngModel" name="registerPassword" type="password" placeholder="Enter password" required ngModel>
+        </div>
+        <button type="submit" class="button">Register</button>
+      </form>
+    </div>
+  
+  </div>
+  
 </body>
 </html>

@@ -1,6 +1,5 @@
 import { Injectable } from '@angular/core';
 import { User } from '../models/user.model';
-import { ChannelService } from './channel.service';
 
 @Injectable({
   providedIn: 'root'
@@ -19,12 +18,39 @@ export class UserService {
   currentUser: User | null = null;
   pendingGroupRequests: { userId: string, groupId: number }[] = [];
 
+  constructor() {
+    // Load from localStorage if exists
+    const saved = localStorage.getItem('currentUser');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Restore as User object
+      this.currentUser = {
+        id: parsed.id,
+        username: parsed.username,
+        email: parsed.email,
+        password: parsed.password,
+        role: parsed.role,
+        groups: parsed.groups
+      }
+    }
+  }
+
+
 // ----------- AUTHENTICATION ----------- //
 
   login(username: string, password: string): boolean {
     const user = this.dummyUsers.find(u => u.username === username && u.password === password);
     if (user) {
       this.currentUser = user;
+      localStorage.setItem('currentUser', JSON.stringify({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        password: user.password,
+        role: user.role,
+        groups: user.groups
+      }));
+
       return true;
     }
     return false;
@@ -48,10 +74,6 @@ export class UserService {
       console.error("username must be unique");
       return false
   };
-
-  joinChannel(user: User, channelId: number, channelService: ChannelService): boolean {
-    return channelService.joinChannel(user, channelId);
-  }
 
   leaveGroup(user: User, groupId: number) {
     user.groups = user.groups.filter(g => g !== groupId)
@@ -79,6 +101,25 @@ export class UserService {
 
 
 // ----------- BOTH SUPER AND GROUP ADMINISTRATOR ----------- //
+
+getUsersByGroup(groupId: number): User[] {
+  const currentUser = this.getCurrentUser();
+
+  if (!currentUser) return [];
+
+  // SUPER_ADMIN can see all users in the group
+  if (currentUser.role.includes('SUPER_ADMIN')) {
+    return this.dummyUsers.filter(user => user.groups.includes(groupId));
+  }
+
+  // GROUP_ADMIN can see users in the same group
+  if (currentUser.role.includes('GROUP_ADMIN') && currentUser.groups.includes(groupId)) {
+    return this.dummyUsers.filter(user => user.groups.includes(groupId));
+  }
+
+  // Normal USER shouldn't see the list
+  return [];
+}
 
   createGroup(groupId: number, user: User) {
     // Assign the group to the user as admin
@@ -149,7 +190,7 @@ export class UserService {
   }
 
   // Can this user manage a given group? (SUPER can manage all, GROUP_ADMIN only their groups)
-  private canManageGroup(u: User | null, groupId: number): boolean {
+  public canManageGroup(u: User | null, groupId: number): boolean {
     if (!u) return false;
     if (u.role.includes('SUPER_ADMIN')) return true;
     return u.role.includes('GROUP_ADMIN') && u.groups.includes(groupId);

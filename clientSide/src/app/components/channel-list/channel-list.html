@@ -2,6 +2,15 @@
 
 <div class="channel-container">
     <h4 class="mb-4">Channels in Group {{ groupId }}</h4>
+
+      <!-- User List Section -->
+      <div class="user-list" *ngIf="canManageGroup()">
+        <h2>Users in this group</h2>
+        <div *ngFor="let user of usersInGroup">
+          <span>{{ user.username }}</span>
+          <button class="remove-user-btn" (click)="removeUser(user)">Remove</button>
+        </div>
+      </div>
   
     <div class="channel-grid">
       <div class="channel-card" *ngFor="let channel of channels">
@@ -11,7 +20,22 @@
              alt="{{ channel.name }}">
   
         <div class="channel-name">{{ channel.name }}</div>
-        <button class="channel-button">Open</button>
+        <div class="button-container">
+          <button class="channel-button" (click)="openChannel(channel.id)">Open</button>
+          <button class="channel-button"  *ngIf="canManageGroup()" (click)="deleteChannel(channel.id)">Delete</button>
+        </div>
       </div>
     </div>
-  </div>
+
+    <div class="create-new-channel" *ngIf="canManageGroup()">
+      <h3 class="text-center">Create New Channel</h3>
+      <form (ngSubmit)="createChannel(channelNameInput.value)">
+        <div class="form">
+          <label>Channel Name: </label>
+          <input #channelNameInput type="text" class="form-control" placeholder="Enter channel name">
+        </div>
+        <button class="create-button" type="submit">Create Channel</button>
+      </form>
+    </div>
+
+</div>

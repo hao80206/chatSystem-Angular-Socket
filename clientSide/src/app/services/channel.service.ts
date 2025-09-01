@@ -55,7 +55,12 @@ export class ChannelService {
     { id: 705, groupId: 7, name: 'Mystery', members: [], bannedUsers: [] },
   ];
 
-  constructor(private userService: UserService) { }
+  constructor(private userService: UserService) { 
+    const savedChannels = localStorage.getItem('channels');
+      if (savedChannels) {
+        this.channels = JSON.parse(savedChannels);
+      }
+  }
 
   getChannelByGroup(groupId: number) : Channel[] {
     return this.channels.filter(c => c.groupId === groupId);
@@ -63,7 +68,9 @@ export class ChannelService {
   };
 
   getChannelById(channelId: number) : Channel | undefined {
-    return this.channels.find(c => c.id === channelId);
+    const id = Number(channelId);
+    console.log("Looking for channelId:", id);
+    return this.channels.find(c => c.id === id);
   };
 
   joinChannel(user: User, channelId: number): boolean {
@@ -134,19 +141,23 @@ export class ChannelService {
     return newChannel;
   }
 
-  deleteChannel(channelId: number): boolean {
+  deleteChannel(channelId: number | string): boolean {
     const currentUser = this.userService.getCurrentUser();
-    const channel = this.getChannelById(channelId);
+    const id = Number(channelId); // convert to number
+    const channel = this.getChannelById(id);
+
+    console.log("deleteChannel called");
+
     if (!currentUser || !channel) return false;
-
-    if (!this.userService.isSuperAdmin(currentUser) &&
-        !(this.userService.isGroupAdmin(currentUser) && currentUser.groups.includes(channel.groupId))) {
-          console.log("You're not allowed to delete Channel")
-          return false;
+  
+    if (!this.userService.canManageGroup(currentUser, channel.groupId)) {
+      console.log("You're not allowed to delete this channel");
+      return false;
     }
-
-    this.channels = this.channels.filter(c => c.id !== channelId);
-    console.log("The channel was deleted")
+  
+    this.channels = this.channels.filter(c => c.id !== id);
+    localStorage.setItem('channels', JSON.stringify(this.channels)); // persist changes
+    console.log("Channel deleted:", channel);
     return true;
   }
 

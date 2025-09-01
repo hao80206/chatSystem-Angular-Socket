@@ -28,12 +28,21 @@
           <img [src]="'assets/Flowers/' + getImageFile(group.name)" alt="{{ group.name }}">
           <p class = "group-name">{{ group.name }}</p>
 
-          <button class="group-button" [routerLink]="['/group', group.id, 'channels']">Look</button>
+          <div class = 'button-container'>
+            <button class="group-button" [routerLink]="['/group', group.id, 'channels']">Open</button>
+            <!-- group admin and super admin can delete/modify groups -->
+            <button class="group-button"  *ngIf="canManageGroup()" (click)="onDeleteGroup(group.id)">Delete</button>
+            <button class="group-button"  *ngIf="canManageGroup()" (click)="onModifyGroup(group.id)">Modify</button>
+
+             <!-- Normal user can leave the group -->
+            <button class="group-button" *ngIf="!canManageGroup()" (click)="leaveGroup(group.id)">Leave</button>
+          </div>
+
         </div>
       </div>
 
       <!-- Create group button + form (visible only to admins) -->
-     <div class="create-group-area" *ngIf="canCreateGroup()">
+     <div class="create-group-area" *ngIf="canManageGroup()">
        <h3 class="text-center">Create New Group</h3>
        <form (ngSubmit)="createGroup(groupNameInput.value)">
          <div class="form">
@@ -45,7 +54,7 @@
      </div>
 
 
-        <h3 class = "heading">You may like ...?</h3>
+      <h3 class = "heading">You may like ...?</h3>
         <div class="group-grid">
           <div class="group-card" *ngFor="let group of otherGroups">
             
@@ -54,6 +63,14 @@
                 <button class="register-button">Register</button>
               </div>
           </div>
-        </div>
+      </div>
+
+      <!-- Normal user: Delete own account -->
+      <div class="delete-account-area" *ngIf="!canManageGroup()">
+        <h3>You would like to delete your account?</h3>
+        <button class="delete-account-btn" (click)="deleteAccount()">
+          Delete My Account
+        </button>
+      </div>
 </body>
 </html>

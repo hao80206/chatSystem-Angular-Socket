@@ -56,6 +56,9 @@ body {
     color: rgb(142, 138, 138);
   }
   
+  .button-container button {
+    margin-right: 10px;
+  }
   .group-button {
     margin-top: 10px;
     padding: 10px 20px;
@@ -132,5 +135,20 @@ button {
   .register-button:hover {
     background-color: #2980b9;
     transform: scale(1.2);
+  }
+
+  .delete-account-area{
+    flex-direction: row;
+    margin: 5px;
+  }
+
+  .delete-account-btn {
+    background-color: rgb(238, 46, 46);
+    font-weight: bold;
+    font-size: 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
   }
   

@@ -22,13 +22,17 @@ export class GroupService{
     ];
 
     initialGroups.forEach(name => {
-      this.groups.push(new Group(this.nextId++, name, 'system', []));
+      this.groups.push(new Group(this.nextId++, name, 'Stella', []));
     });
   };
 
   // ---------------- HELPERS ---------------- //
   private currentUser() {
     return this.userService.getCurrentUser();
+  }
+
+  getAllGroups(): Group[] {
+    return [...this.groups]; // return a copy
   }
 
   private canManageGroup(group: Group): boolean {
@@ -87,9 +91,9 @@ export class GroupService{
       return false;
     }
 
-    console.warn('Permission denied: You cannot delete this group.');
-    return false;
-
+    this.groups.splice(groupIndex, 1);
+    console.log('Group deleted:', group);
+    return true;
   }
   
 }

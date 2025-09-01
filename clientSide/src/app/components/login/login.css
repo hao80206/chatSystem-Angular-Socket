@@ -5,6 +5,10 @@ body {
     align-items: center;
 }
 
+.container {
+    justify-content: row;
+}
+
 form {
     background-color: #fff;
     align-self: center;
