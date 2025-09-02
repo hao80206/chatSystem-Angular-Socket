@@ -22,7 +22,7 @@ export class GroupService{
     ];
 
     initialGroups.forEach(name => {
-      this.groups.push(new Group(this.nextId++, name, 'Stella', []));
+      this.groups.push(new Group(this.nextId++, name, 'Super', []));
     });
   };
 
@@ -39,7 +39,7 @@ export class GroupService{
     const user = this.currentUser();
     if (!user) return false;
     return this.userService.isSuperAdmin(user) || 
-           (this.userService.isGroupAdmin(user) && group.createdBy === user.username);
+           (this.userService.isGroupAdmin(user));
   }
 
   getGroups(): Group[] {
@@ -52,14 +52,31 @@ export class GroupService{
       return null
     }
 
-    if(this.userService.isSuperAdmin(user) || this.userService.isGroupAdmin(user)) {
-      const newGroup = new Group(this.nextId++, name, user.username);
-      this.groups.push(newGroup);
-      return newGroup;
+    if (!this.userService.isSuperAdmin(user) && !this.userService.isGroupAdmin(user)) {
+      console.warn('Permission denied: Only group_admin or super_admin can create groups.');
+      return null;
+    }
+  
+    // Create new group
+    const newGroup = new Group(this.nextId++, name, user.username);
+    this.groups.push(newGroup);
+
+    // If creator is a group admin, add them to this group
+    if (this.userService.isGroupAdmin(user)) {
+      if (!user.groups.includes(newGroup.id)) {
+        user.groups.push(newGroup.id);
+      }
     }
 
-    console.warn('Permission denied: Only group_admin or super_admin can create groups.');
-    return null;
+  // Add the new group to all super admins
+  const superAdmins = this.userService.getAllSuperAdmins();
+  superAdmins.forEach(sa => {
+    if (!sa.groups.includes(newGroup.id)) {
+      sa.groups.push(newGroup.id);
+    }
+  });
+
+  return newGroup;
   };
 
   // GROUP_ADMIN or SUPER_ADMIN can modify the name of group

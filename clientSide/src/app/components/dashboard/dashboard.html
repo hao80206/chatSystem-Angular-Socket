@@ -25,7 +25,7 @@
               Group Administrator of
             </div>
 
-          <img [src]="'assets/Flowers/' + getImageFile(group.name)" alt="{{ group.name }}">
+          <img [src]="'assets/Flowers/' + getImageFile(group)" alt="{{ group.name }}" class="group-image">
           <p class = "group-name">{{ group.name }}</p>
 
           <div class = 'button-container'>
@@ -58,9 +58,9 @@
         <div class="group-grid">
           <div class="group-card" *ngFor="let group of otherGroups">
             
-            <img [src]="'assets/Flowers/' + getImageFile(group.name)" alt="{{ group.name }}">
+            <img [src]="'assets/Flowers/' + getImageFile(group)" alt="{{ group.name }}" class="group-image">
               <div class="group-name">{{ group.name }}</div>
-                <button class="register-button">Register</button>
+                <button class="register-button" (click)="registerGroup(group.id)">Register</button>
               </div>
           </div>
       </div>

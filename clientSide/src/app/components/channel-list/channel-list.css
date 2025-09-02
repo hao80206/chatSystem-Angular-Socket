@@ -8,6 +8,19 @@ body {
     font-size: 30px;
   }
 
+  .user-control-panel{
+    text-align: center;
+    border-color: black;
+    border-radius: 8px;
+    gap:20px;
+  }
+
+  .list-container {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+  }
+
   .user-list {
     background-color: #bfd9eb;
     width: 400px;
@@ -30,6 +43,59 @@ body {
   }
 
   .user-list button:hover {
+    transform: scale(1.2);
+  }
+
+   /* ------------ Pending List -----------*/
+  .user-pending-list {
+    background-color: #f0f5ba;
+    width: 400px;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px auto;
+
+  }
+  .user-pending-list span {
+    padding: 20px;
+    font-size: 20px;
+  }
+
+  .user-pending-list button {
+    margin: 10px;
+    border-radius: 9px;
+    height: 25px;
+    border: none;
+    transition: 0.2s;
+  }
+
+  .user-pending-list button:hover {
+    transform: scale(1.2);
+  }
+
+  /* ------------ Promote List -----------*/
+
+  .user-promote-list {
+    background-color: #debaf5;
+    width: 400px;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px auto;
+
+  }
+  .user-promote-list span {
+    padding: 20px;
+    font-size: 20px;
+  }
+
+  .user-promote-list button {
+    margin: 10px;
+    border-radius: 9px;
+    height: 25px;
+    border: none;
+    transition: 0.2s;
+  }
+
+  .user-promote-list button:hover {
     transform: scale(1.2);
   }
   

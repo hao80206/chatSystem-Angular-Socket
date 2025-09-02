@@ -40,11 +40,60 @@ export class Dashboard implements OnInit {
     }
   }
 
-  getImageFile(groupName: string): string {
-    // Example: "Group1-Tulip" → "tulip.png"
-    const flower = groupName.split('-')[1]?.trim().toLowerCase() || 'default';
-    return flower + '.png';
+  getImageFile(group: Group): string {
+
+   // If group was created later, fallback to default
+  if (group.id > 7) {
+    return "defaultImg.png";
   }
+
+  // Otherwise, parse the name like "Group1-Tulip"
+  const parts = group.name?.split('-');
+  const flower = parts && parts[1] ? parts[1].trim().toLowerCase() : 'default';
+  return flower + '.png';
+  }
+
+  registerGroup(groupId: number): void {
+    const currentUser = this.userService.getCurrentUser();
+  
+    if (!currentUser) {
+      console.error("No current user found.");
+      return;
+    }
+  
+    const success = this.userService.registerNewGroup(currentUser, groupId);
+  
+    if (success) {
+      console.log("Successfully requested to join group:", groupId);
+    } else {
+      console.log("Could not register for group:", groupId);
+    }
+  }
+
+  // Delete the logged-in user account
+  deleteAccount() {
+    const currentUser = this.userService.getCurrentUser();
+    if (!currentUser) return;
+
+    if (confirm("Are you sure you want to delete your account?")) {
+      this.userService.deleteSelf(currentUser);
+
+      // Navigate to login/register page
+      this.router.navigate(['/login']);
+    }
+  }
+
+  leaveGroup(groupId: number) {
+    const currentUser = this.userService.getCurrentUser();
+    if (!currentUser) return;
+  
+    this.userService.leaveGroup(currentUser, groupId);
+  
+    // Refresh the local userGroups array
+    this.userGroups = this.userGroups.filter(g => g.id !== groupId);
+    console.log('Left group:', groupId);
+  }
+
 
   // check if current user is GROUP_ADMIN for a specific group
   isGroupAdminOf(group: Group): boolean {
@@ -58,7 +107,11 @@ export class Dashboard implements OnInit {
     return !!u && (u.role.includes('GROUP_ADMIN') || u.role.includes('SUPER_ADMIN'));
   }
 
+  // -------ONLY ADMIN GROUP CAN ACCESS THOSE FUNCTIONS -------//
+
   createGroup(name: string): void {
+    const currentUser = this.userService.getCurrentUser();
+    if (!currentUser) return;
 
     if (!name.trim()) {
       alert("Group name cannot be empty!");
@@ -66,11 +119,28 @@ export class Dashboard implements OnInit {
     }
 
     const newGroup = this.groupService.createGroup(name);
-    if (newGroup) {
-      console.log('Group created:', newGroup);
-    } else {
+    if (!newGroup) {
       console.warn('Failed to create group.');
+      return;
     }
+  
+    console.log('Group created:', newGroup);
+  
+    // If current user is GROUP_ADMIN, automatically add them to the new group
+    if (currentUser.role.includes('GROUP_ADMIN') && !currentUser.groups.includes(newGroup.id)) {
+      currentUser.groups.push(newGroup.id);
+    }
+  
+    // Refresh dashboard lists
+    this.allGroups = this.groupService.getGroups();
+  
+    this.userGroups = this.allGroups.filter(group =>
+      currentUser.role.includes('SUPER_ADMIN') || currentUser.groups.includes(group.id)
+    );
+  
+    this.otherGroups = !currentUser.role.includes('SUPER_ADMIN')
+      ? this.allGroups.filter(group => !currentUser.groups.includes(group.id))
+      : []; // Super Admin sees no "You may like" section
   }
 
   onDeleteGroup(groupId: number): void {
@@ -89,27 +159,4 @@ export class Dashboard implements OnInit {
     }
   }
 
-  leaveGroup(groupId: number) {
-    const currentUser = this.userService.getCurrentUser();
-    if (!currentUser) return;
-  
-    this.userService.leaveGroup(currentUser, groupId);
-  
-    // Refresh the local userGroups array
-    this.userGroups = this.userGroups.filter(g => g.id !== groupId);
-    console.log('Left group:', groupId);
-  }
-
-  // Delete the logged-in user account
-  deleteAccount() {
-    const currentUser = this.userService.getCurrentUser();
-    if (!currentUser) return;
-
-    if (confirm("Are you sure you want to delete your account?")) {
-      this.userService.deleteSelf(currentUser);
-
-      // Navigate to login/register page
-      this.router.navigate(['/login']);
-    }
-  }
 }

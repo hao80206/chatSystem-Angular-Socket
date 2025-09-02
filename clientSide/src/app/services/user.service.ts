@@ -64,6 +64,10 @@ export class UserService {
     return this.currentUser;
   }
 
+  getUserById(userId: string): User | null {
+    return this.dummyUsers.find(u => u.id === userId) || null;
+  }
+
 // ------------- CHAT USER ------------- //
   createUser(newUser: User) {
     const exist = this.dummyUsers.some(u => u.username === newUser.username)
@@ -85,10 +89,14 @@ export class UserService {
 
     const exists = this.pendingGroupRequests.some(r => r.userId === user.id && r.groupId === groupId);
 
-    if (exists) return false; 
+    if (exists) {
+      alert("User already requested to join this group. Please wait for a moment");
+      return false;
+    } 
 
     this.pendingGroupRequests.push({ userId: user.id, groupId });
-    console.log("already requested")
+    console.log("New group registration request submitted:", groupId);
+    alert("New group registration request submitted:");
     return true;
   }
 
@@ -158,27 +166,38 @@ getUsersByGroup(groupId: number): User[] {
   }
 
   // ----------- SUPER ADMINISTRATOR ----------- //
-  promoteToGroupAdmin(user: User, groupId: number) {
-    if (!user.role.includes('GROUP_ADMIN')) {
-      user.role.push('GROUP_ADMIN')
-    };
-    if (!user.groups.includes(groupId)) {
-      user.groups.push(groupId)
-    };
-  }
 
+  promoteUser(user: User, role: 'SUPER_ADMIN' | 'GROUP_ADMIN', groupId?: number) {
+    const currentUser = this.getCurrentUser();
+    if (!currentUser || !this.isSuperAdmin(currentUser)) {
+      console.warn("Only SUPER_ADMIN can promote users.");
+      return false;
+    }
+  
+    if (role === 'SUPER_ADMIN') {
+      if (!user.role.includes('SUPER_ADMIN')) user.role.push('SUPER_ADMIN');
+    }
+  
+    if (role === 'GROUP_ADMIN') {
+      if (!user.role.includes('GROUP_ADMIN')) user.role.push('GROUP_ADMIN');
+      if (groupId && !user.groups.includes(groupId)) user.groups.push(groupId);
+    }
+  
+    console.log(`User ${user.username} promoted to ${role}`);
+    return true;
+  }
+  
   removeUser(user: User) {
     this.dummyUsers = this.dummyUsers.filter(u => u.id !== user.id);
     if (this.currentUser?.id === user.id) this.logout();
   }
-
-  upgradeToSuper(user: User) {
-    if (!user.role.includes('SUPER_ADMIN')) user.role.push('SUPER_ADMIN');
-  }
-
   // -------- Helpers -------- //
   getAllUsers(): User[] {
     return this.dummyUsers;
+  }
+
+  getAllSuperAdmins(): User[] {
+    return this.dummyUsers.filter(u => u.role.includes('SUPER_ADMIN'));
   }
 
   isSuperAdmin(u: User | null): boolean {

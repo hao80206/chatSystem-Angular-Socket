@@ -16,6 +16,7 @@ import { UserService } from '../../services/user.service';
 })
 export class ChannelList implements OnInit {
 
+  currentUser: User | null = null;
   groupId!: number;
   channels: Channel[] = [];
   usersInGroup: User[] = [];
@@ -24,8 +25,10 @@ export class ChannelList implements OnInit {
   constructor(private route: ActivatedRoute, 
               private router: Router,
               private channelService:ChannelService,
-              private userService:UserService
+              public userService:UserService
             ) { }
+
+  pendingRequests: { userId: string, groupId: number }[] = [];
 
   ngOnInit(): void {
     // Get groupId from route and convert to number
@@ -40,6 +43,13 @@ export class ChannelList implements OnInit {
     this.usersInGroup = this.userService.getUsersByGroup(this.groupId)
     .filter(u => !u.role.includes('GROUP_ADMIN') && !u.role.includes('SUPER_ADMIN'));
     console.log('Users in group: ', this.usersInGroup);
+
+    // Load requests relevant to this group
+    this.pendingRequests = this.userService.pendingGroupRequests.filter(
+      r => r.groupId === this.groupId
+    );
+
+    this.currentUser = this.userService.getCurrentUser();
   }
 
   // Only GROUP_ADMIN or SUPER_ADMIN can manage group
@@ -70,7 +80,7 @@ export class ChannelList implements OnInit {
 
     // Only allow removing normal users
     if (user.role.includes('SUPER_ADMIN') || user.role.includes('GROUP_ADMIN')) {
-      console.warn("You cannot remove this user since they'are ADMINISTRATOR.");
+      alert("You cannot remove this user since they'are ADMINISTRATOR.");
       return;
     }
 
@@ -80,6 +90,43 @@ export class ChannelList implements OnInit {
     // Refresh users list (only normal users)
     this.usersInGroup = this.userService.getUsersByGroup(this.groupId)
       .filter(u => !u.role.includes('GROUP_ADMIN') && !u.role.includes('SUPER_ADMIN'));
+  }
+
+  approveRequest(req: { userId: string, groupId: number }) {
+    const user = this.userService.getUserById(req.userId);
+    const currentUser = this.userService.getCurrentUser();
+    if (user && currentUser) {
+      this.userService.letUserJoinGroup(user, req.groupId, currentUser);
+      this.refreshData();
+    }
+  }
+  
+  rejectRequest(req: { userId: string, groupId: number }) {
+    const index = this.userService.pendingGroupRequests.findIndex(
+      r => r.userId === req.userId && r.groupId === req.groupId
+    );
+    if (index !== -1) {
+      this.userService.pendingGroupRequests.splice(index, 1);
+      this.refreshData();
+    }
+  }
+  
+  refreshData() {
+    this.pendingRequests = this.userService.pendingGroupRequests.filter(
+      r => r.groupId === this.groupId
+    );
+
+    this.usersInGroup = this.userService.getUsersByGroup(this.groupId)
+    .filter(u => !u.role.includes('GROUP_ADMIN') && !u.role.includes('SUPER_ADMIN'));
+  }
+
+  // Promote user
+  promoteUserToGroupAdmin(user: User, groupId: number) {
+    this.userService.promoteUser(user, 'GROUP_ADMIN', groupId);
+  }
+
+  promoteUserToSuperAdmin(user: User) {
+    this.userService.promoteUser(user, 'SUPER_ADMIN');
   }
 
   createChannel(name: string): void {

@@ -1,17 +1,45 @@
 <app-navbar></app-navbar>
 
 <div class="channel-container">
-    <h4 class="mb-4">Channels in Group {{ groupId }}</h4>
+    <h4 class="mb-4">You're in Group {{ groupId }}</h4>
 
+  <div class="user-control-panel" *ngIf="canManageGroup()">
+    <h3>Only Group Admin and Super Admin can touch this panel</h3>
+    <div class="list-container">
       <!-- User List Section -->
       <div class="user-list" *ngIf="canManageGroup()">
         <h2>Users in this group</h2>
         <div *ngFor="let user of usersInGroup">
           <span>{{ user.username }}</span>
-          <button class="remove-user-btn" (click)="removeUser(user)">Remove</button>
+          <button class="list-btn" (click)="removeUser(user)">Remove</button>
         </div>
       </div>
-  
+      
+      <!-- User Requests Section -->
+      <div class="user-pending-list" *ngIf="canManageGroup()">
+        <h2>Pending User Requests</h2>
+        <div *ngFor="let req of pendingRequests">
+          <span>{{ userService.getUserById(req.userId)?.username }}</span>
+          <button class="list-btn" (click)="approveRequest(req)">Approve</button>
+          <button class="list-btn" (click)="rejectRequest(req)">Reject</button>
+        </div>
+      </div>
+
+       <!-- User Promote Section -->
+       <div class="user-promote-list" *ngIf="userService.isSuperAdmin(userService.getCurrentUser()!)">
+        <h2>Promote Users</h2>
+        <div *ngFor="let user of usersInGroup">
+          <span>{{ user.username }}</span><br>
+          <button class="list-btn" (click)="promoteUserToSuperAdmin(user)"> To Super Admin</button>
+          <button class="list-btn" (click)="promoteUserToGroupAdmin(user, groupId)">To Group Admin</button>
+        </div>
+      </div>
+    </div>
+
+
+    </div>
+
+    <h4 class="mb-4">Channels</h4>
     <div class="channel-grid">
       <div class="channel-card" *ngFor="let channel of channels">
         <!-- channel image -->
