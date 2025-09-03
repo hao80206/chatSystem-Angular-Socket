@@ -1,1 +1,33 @@
-<p>channel-chat works!</p>
+<app-navbar></app-navbar>
+
+<div class="chat-container">
+    <h2 class="mb-4">You're in Group {{ groupId }}, Channel - {{ channelService.getChannelById(channelId)?.name }}</h2>
+
+    <!-- Messages Display -->
+    <h3>Message Chat</h3>
+    <div class="message-field">
+        <div *ngFor="let msg of messages" class="message">
+            <span class="msg-user">{{ msg.user }}:</span>
+            <span class="msg-text">{{ msg.text }}</span>
+            <span class="msg-time">{{ msg.timestamp | date:'shortTime' }}</span>
+          </div>
+    </div>
+
+
+    <!-- Send Message Form -->
+     <h3>Send new message</h3>
+    <div class="send-message-form">
+        <input type="text" placeholder="Type your message..." [(ngModel)]="newMessage" name="messageInput" (keyup.enter)="sendMessage()">
+    <button (click)="sendMessage()">Send</button>
+    </div>
+
+    <!-- Admin: Ban User Section -->
+    <div class="admin-actions" *ngIf="userService.isGroupAdmin(currentUser!)">
+        <h3>IMPORTANT: User Control Panel</h3>
+        <h4>Group Admin can ban chat users and report to Super Admin</h4>
+        <div *ngFor="let user of usersInGroup">
+        <span>{{ user.username }}</span>
+        <button class="ban-btn" (click)="banUser(user.id)">Ban</button>
+        </div>
+    </div>
+</div>

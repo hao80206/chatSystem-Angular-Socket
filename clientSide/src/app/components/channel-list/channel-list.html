@@ -30,8 +30,8 @@
         <h2>Promote Users</h2>
         <div *ngFor="let user of usersInGroup">
           <span>{{ user.username }}</span><br>
-          <button class="list-btn" (click)="promoteUserToSuperAdmin(user)"> To Super Admin</button>
-          <button class="list-btn" (click)="promoteUserToGroupAdmin(user, groupId)">To Group Admin</button>
+          <button class="list-btn" (click)="promoteUser(user,'SUPER_ADMIN')"> To Super Admin</button>
+          <button class="list-btn" (click)="promoteUser(user,'GROUP_ADMIN')">To Group Admin</button>
         </div>
       </div>
     </div>

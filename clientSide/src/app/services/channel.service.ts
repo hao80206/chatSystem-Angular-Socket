@@ -69,7 +69,6 @@ export class ChannelService {
 
   getChannelById(channelId: number) : Channel | undefined {
     const id = Number(channelId);
-    console.log("Looking for channelId:", id);
     return this.channels.find(c => c.id === id);
   };
 
@@ -117,19 +116,35 @@ export class ChannelService {
       return false;
       }
 
-    // Add to banned list and remove from channel
-    if (!channel.bannedUsers.includes(targetUserId)) {
-      channel.bannedUsers.push(targetUserId);
-      channel.members = channel.members.filter(id => id !== targetUserId);
-    }
-    console.log(`User ${targetUserId} banned from channel ${channel.name}`)
-
-    //report to all super admins
-    const superAdmins = this.userService.getAllUsers().filter(u => u.role.includes('SUPER_ADMIN'));
-    superAdmins.forEach(sa => console.log(`Reported banned user ${targetUserId} to SUPER_ADMIN ${sa.username}`));
-    alert(`Reported banned user ${targetUserId} to SUPER_ADMIN`)
+      const targetUser = this.userService.getUserById(targetUserId);
+      if (!targetUser) {
+        console.warn(`User with ID ${targetUserId} not found.`);
+        return false;
+      }
     
-    return true;
+      // Add to banned list and remove from channel
+      if (!channel.bannedUsers.includes(targetUserId)) {
+        channel.bannedUsers.push(targetUserId);
+        channel.members = channel.members.filter(id => id !== targetUserId);
+      }
+    
+      console.log(
+        `User ${targetUser.username} (ID: ${targetUser.id}) banned from channel ${channel.name} - Group: ${channel.groupId}`
+      );
+    
+      // Report to all super admins
+      const superAdmins = this.userService
+        .getAllUsers()
+        .filter(u => u.role.includes('SUPER_ADMIN'));
+    
+      superAdmins.forEach(sa =>
+        console.log(`Reported banned user ${targetUser.username} to SUPER_ADMIN ${sa.username}`)
+      );
+    
+      alert(`Reported banned user ${targetUser.username} to SUPER_ADMIN`);
+    
+      return true;
+    
   }
 
   createChannel(groupId: number, name: string): Channel | null {

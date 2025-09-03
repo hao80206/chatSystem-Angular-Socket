@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { Navbar } from '../navbar/navbar';
 import { UserService } from '../../services/user.service';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-login',
@@ -12,8 +13,13 @@ import { FormsModule } from '@angular/forms';
   styleUrl: './login.css'
 })
 export class Login {
+  private readonly API = 'http://localhost:3000';
 
-  constructor(private router: Router,private userService: UserService) { }
+  constructor(
+    private router: Router, 
+    private userService: UserService,
+    private http: HttpClient
+  ) { }
 
   // LOGIN FUNCTION
   login(username: string, password: string) {
@@ -33,30 +39,48 @@ export class Login {
 
   // REGISTER FUNCTION
   register(username: string, email: string, password: string) {
+    console.log('Register function called with:', { username, email, password });
 
     if (!username.trim() || !email.trim() || !password.trim()) {
       alert('All fields are required!');
       return;
     }
 
-    const newUser: User = {
-      id: (this.userService.dummyUsers.length + 1).toString(),
-      username,
-      email,
-      password,
-      role: ['USER'],
-      groups: []
-    };
-
-    const success = this.userService.createUser(newUser);
-    if (success) {
-      alert('Account created successfully!');
-      // Optionally auto-login after register
-      this.userService.login(username, password);
-      this.router.navigate(['/dashboard']);
-    } else {
-      alert('Username already exists. Choose a different one.');
-    }
+    // Call the server register API
+    this.http.post(`${this.API}/api/register`, { username, email, password }).subscribe({
+      next: (response: any) => {
+        console.log('Registration successful:', response);
+        
+        // Create the user in the local user service
+        const newUser: User = {
+          id: response.user.id,
+          username: response.user.username,
+          email: response.user.email,
+          password: password, // Keep password for login
+          role: response.user.role,
+          groups: response.user.groups
+        };
+        
+        // Add user to local service
+        this.userService.createUser(newUser);
+        
+        // Login the user
+        const loginSuccess = this.userService.login(username, password);
+        if (loginSuccess) {
+          alert('Account created successfully! You are now pending admin approval for all groups.');
+          this.router.navigate(['/dashboard']);
+        } else {
+          alert('Account created but login failed. Please try logging in manually.');
+        }
+      },
+      error: (error) => {
+        console.error('Registration failed:', error);
+        if (error.status === 400) {
+          alert(error.error.error || 'Registration failed');
+        } else {
+          alert('Registration failed. Please try again.');
+        }
+      }
+    });
   }
-
 }

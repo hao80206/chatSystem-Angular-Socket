@@ -129,6 +129,12 @@ getUsersByGroup(groupId: number): User[] {
   return [];
 }
 
+requestJoinGroup(user: User, groupId: number) {
+  // Locally add pending request
+  this.pendingGroupRequests.push({ userId: user.id, groupId });
+}
+
+
   createGroup(groupId: number, user: User) {
     // Assign the group to the user as admin
     if (!user.groups.includes(groupId)) {

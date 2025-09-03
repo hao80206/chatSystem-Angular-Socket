@@ -1,13 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
-    <link rel="stylesheet" href="./dashboard.css">
-</head>
-<body>
-    <app-navbar></app-navbar>
+  <app-navbar></app-navbar>
 
     <div class="dashboard-container">
         <h3 class = "heading">Welcome, {{ userService.getCurrentUser()?.username }}!  Your Groups are</h3>
@@ -53,16 +44,29 @@
        </form>
      </div>
 
-
       <h3 class = "heading">You may like ...?</h3>
         <div class="group-grid">
           <div class="group-card" *ngFor="let group of otherGroups">
             
             <img [src]="'assets/Flowers/' + getImageFile(group)" alt="{{ group.name }}" class="group-image">
               <div class="group-name">{{ group.name }}</div>
-                <button class="register-button" (click)="registerGroup(group.id)">Register</button>
+                <button class="register-button" (click)="joinGroupRequest(group.id)">Register</button>
               </div>
           </div>
+      </div>
+
+      <!-- Pending Join Requests Section (for group admins) -->
+      <div *ngIf="pendingRequests.length > 0" class="pending-requests-section">
+        <h3 class="heading">Pending Join Requests</h3>
+        <div class="pending-requests-list">
+          <div class="request-item" *ngFor="let request of pendingRequests">
+            <span class="request-info">User {{ request.userId }} wants to join Group {{ request.groupId }}</span>
+            <div class="request-buttons">
+              <button class="approve-btn" (click)="approveRequest(request)">Approve</button>
+              <button class="reject-btn" (click)="rejectRequest(request)">Reject</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Normal user: Delete own account -->
@@ -72,5 +76,3 @@
           Delete My Account
         </button>
       </div>
-</body>
-</html>
