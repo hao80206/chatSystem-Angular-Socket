@@ -13,6 +13,7 @@ import { HttpClientModule } from '@angular/common/http';
 
 @Component({
   selector: 'app-channel-list',
+  standalone: true,
   imports: [FormsModule, CommonModule, Navbar, HttpClientModule],
   templateUrl: './channel-list.html',
   styleUrls: ['./channel-list.css']

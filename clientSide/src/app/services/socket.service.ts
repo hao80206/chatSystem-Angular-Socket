@@ -62,9 +62,10 @@ export class SocketService {
   }
 
   on(event: string, callback: (data: any) => void): void {
-    if (this.socket) {
-      this.socket.on(event, callback);
+    if (!this.socket) {
+      this.connect();
     }
+    this.socket!.on(event, callback);
   }
 
   off(event: string): void {

@@ -22,6 +22,7 @@ export class Dashboard implements OnInit, OnDestroy {
   otherGroups: Group[] = [];
   allGroups: Group[] = [];
   newGroupName = '';
+  pendingRequests: { userId: string, groupId: number }[] = [];
 
   constructor(
     public userService: UserService, 

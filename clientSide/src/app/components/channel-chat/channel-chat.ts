@@ -11,6 +11,7 @@ import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-channel-chat',
+  standalone: true,
   imports: [FormsModule, CommonModule, Navbar],
   templateUrl: './channel-chat.html',
   styleUrls: ['./channel-chat.css']

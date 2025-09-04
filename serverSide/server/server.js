@@ -220,14 +220,48 @@ io.on('connection', (socket) => {
   });
 
   socket.on('requestJoinGroup', (req) => {
-    if (!req || !req.userId || !req.groupId) return;
-    data.joinRequests.push({ userId: String(req.userId), groupId: Number(req.groupId) });
-    saveData();
-    io.to(`group-${req.groupId}`).emit('groupRequest', { userId: String(req.userId), groupId: Number(req.groupId) });
-    io.emit('groupRequest', { userId: String(req.userId), groupId: Number(req.groupId) });
+    try {
+      if (!req || !req.userId || !req.groupId) return;
+      const userId = String(req.userId);
+      const groupId = Number(req.groupId);
+
+      const user = data.users.find(u => u.id === userId);
+      const group = data.groups.find(g => g.id === groupId);
+      if (!user || !group) return;
+
+      // Prevent admins from creating pending requests
+      if (user.role.includes('SUPER_ADMIN') || user.role.includes('GROUP_ADMIN')) return;
+
+      // Prevent if already in group
+      if ((user.groups || []).includes(groupId)) return;
+
+      if (!data.joinRequests) data.joinRequests = [];
+      const exists = data.joinRequests.find(r => r.userId === userId && r.groupId === groupId);
+      if (exists) return;
+
+      data.joinRequests.push({ userId, groupId });
+      saveData();
+      io.to(`group-${groupId}`).emit('groupRequest', { userId, groupId });
+      io.emit('groupRequest', { userId, groupId });
+    } catch (error) {
+      console.error('Error in requestJoinGroup:', error);
+    }
   });
 
   socket.on('approveRequest', (req) => {
+    const idx = data.joinRequests.findIndex(r => r.userId === String(req.userId) && r.groupId === Number(req.groupId));
+    if (idx !== -1) {
+      const user = data.users.find(u => u.id === String(req.userId));
+      if (user && !user.groups.includes(Number(req.groupId))) user.groups.push(Number(req.groupId));
+      data.joinRequests.splice(idx, 1);
+      saveData();
+      io.to(`group-${req.groupId}`).emit('requestApproved', req.userId);
+      io.emit('requestApproved', req.userId);
+    }
+  });
+
+  // Compatibility alias
+  socket.on('approveJoinRequest', (req) => {
     const idx = data.joinRequests.findIndex(r => r.userId === String(req.userId) && r.groupId === Number(req.groupId));
     if (idx !== -1) {
       const user = data.users.find(u => u.id === String(req.userId));
@@ -249,6 +283,17 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Compatibility alias
+  socket.on('rejectJoinRequest', (req) => {
+    const idx = data.joinRequests.findIndex(r => r.userId === String(req.userId) && r.groupId === Number(req.groupId));
+    if (idx !== -1) {
+      data.joinRequests.splice(idx, 1);
+      saveData();
+      io.to(`group-${req.groupId}`).emit('requestRejected', req.userId);
+      io.emit('requestRejected', req.userId);
+    }
+  });
+
   socket.on('createChannel', (channel) => {
     if (!channel || !channel.groupId) return;
     io.to(`group-${channel.groupId}`).emit('channelCreated', channel);
@@ -256,6 +301,21 @@ io.on('connection', (socket) => {
 
   socket.on('deleteChannel', ({ channelId, groupId }) => {
     io.to(`group-${groupId}`).emit('channelDeleted', channelId);
+  });
+
+  // Leave group room
+  socket.on('leaveGroup', (payload) => {
+    try {
+      let groupId;
+      if (typeof payload === 'object') groupId = payload.groupId;
+      else groupId = payload;
+      if (groupId !== undefined && groupId !== null) {
+        socket.leave(`group-${groupId}`);
+        console.log(`${socket.id} left group-${groupId}`);
+      }
+    } catch (error) {
+      console.error('Error in leaveGroup:', error);
+    }
   });
 
   socket.on('promoteUser', (payload) => {

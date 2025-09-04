@@ -8,9 +8,10 @@ import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-login',
+  standalone: true,
   imports: [Navbar, FormsModule],
   templateUrl: './login.html',
-  styleUrl: './login.css'
+  styleUrls: ['./login.css']
 })
 export class Login {
   private readonly API = 'http://localhost:3000';
