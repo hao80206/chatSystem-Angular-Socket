@@ -1,0 +1,455 @@
+{
+  "users": [
+    {
+      "id": "1",
+      "username": "Alice",
+      "email": "alice@mail.com",
+      "password": "123",
+      "role": [
+        "USER"
+      ],
+      "groups": [
+        1,
+        2,
+        5,
+        7
+      ]
+    },
+    {
+      "id": "2",
+      "username": "Bob",
+      "email": "bob@mail.com",
+      "password": "123",
+      "role": [
+        "USER"
+      ],
+      "groups": [
+        2,
+        3,
+        6,
+        7
+      ]
+    },
+    {
+      "id": "3",
+      "username": "Kevin",
+      "email": "kevin@mail.com",
+      "password": "123",
+      "role": [
+        "USER"
+      ],
+      "groups": [
+        1,
+        4,
+        6,
+        7
+      ]
+    },
+    {
+      "id": "4",
+      "username": "Taylor",
+      "email": "taylor@mail.com",
+      "password": "123",
+      "role": [
+        "USER"
+      ],
+      "groups": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "id": "5",
+      "username": "Stella",
+      "email": "stella@mail.com",
+      "password": "123",
+      "role": [
+        "GROUP_ADMIN"
+      ],
+      "groups": [
+        1,
+        3,
+        4
+      ]
+    },
+    {
+      "id": "6",
+      "username": "Super",
+      "email": "super@mail.com",
+      "password": "123",
+      "role": [
+        "SUPER_ADMIN"
+      ],
+      "groups": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "name": "Group1 - Tulip",
+      "createdBy": "Super",
+      "channels": [
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Group2 - Calendula",
+      "createdBy": "Super",
+      "channels": [
+        201,
+        202,
+        203,
+        204,
+        205,
+        206
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Group3 - Lavender",
+      "createdBy": "Super",
+      "channels": [
+        301,
+        302,
+        303,
+        304,
+        305
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Group4 - Lily",
+      "createdBy": "Super",
+      "channels": [
+        401,
+        402,
+        403,
+        404,
+        405
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Group5 - Marigold",
+      "createdBy": "Super",
+      "channels": [
+        501,
+        502,
+        503,
+        504,
+        505
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Group6 - Rose",
+      "createdBy": "Super",
+      "channels": [
+        601,
+        602,
+        603,
+        604,
+        605
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Group7 - Jasmine",
+      "createdBy": "Super",
+      "channels": [
+        701,
+        702,
+        703,
+        704,
+        705
+      ]
+    }
+  ],
+  "channels": [
+    {
+      "id": 101,
+      "groupId": 1,
+      "name": "General",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 102,
+      "groupId": 1,
+      "name": "News",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 103,
+      "groupId": 1,
+      "name": "Trip",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 104,
+      "groupId": 1,
+      "name": "Beauty",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 105,
+      "groupId": 1,
+      "name": "Comedy",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 106,
+      "groupId": 1,
+      "name": "Cooking",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 107,
+      "groupId": 1,
+      "name": "Exercise",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 201,
+      "groupId": 2,
+      "name": "News",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 202,
+      "groupId": 2,
+      "name": "Games",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 203,
+      "groupId": 2,
+      "name": "Trip",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 204,
+      "groupId": 2,
+      "name": "Beauty",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 205,
+      "groupId": 2,
+      "name": "Comedy",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 206,
+      "groupId": 2,
+      "name": "Cooking",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 301,
+      "groupId": 3,
+      "name": "News",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 302,
+      "groupId": 3,
+      "name": "General",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 303,
+      "groupId": 3,
+      "name": "Trip",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 304,
+      "groupId": 3,
+      "name": "Beauty",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 305,
+      "groupId": 3,
+      "name": "Games",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 401,
+      "groupId": 4,
+      "name": "General",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 402,
+      "groupId": 4,
+      "name": "WorldHeritage",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 403,
+      "groupId": 4,
+      "name": "Cosmetics",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 404,
+      "groupId": 4,
+      "name": "Vlog",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 405,
+      "groupId": 4,
+      "name": "Mystery",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 501,
+      "groupId": 5,
+      "name": "News",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 502,
+      "groupId": 5,
+      "name": "Comedy",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 503,
+      "groupId": 5,
+      "name": "Vlog",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 504,
+      "groupId": 5,
+      "name": "Beauty",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 505,
+      "groupId": 5,
+      "name": "Games",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 601,
+      "groupId": 6,
+      "name": "News",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 602,
+      "groupId": 6,
+      "name": "Comedy",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 603,
+      "groupId": 6,
+      "name": "Vlog",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 604,
+      "groupId": 6,
+      "name": "Beauty",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 605,
+      "groupId": 6,
+      "name": "Cooking",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 701,
+      "groupId": 7,
+      "name": "General",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 702,
+      "groupId": 7,
+      "name": "Vlog",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 703,
+      "groupId": 7,
+      "name": "WorldHeritage",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 704,
+      "groupId": 7,
+      "name": "Trip",
+      "members": [],
+      "bannedUsers": []
+    },
+    {
+      "id": 705,
+      "groupId": 7,
+      "name": "Mystery",
+      "members": [],
+      "bannedUsers": []
+    }
+  ],
+  "joinRequests": [],
+  "messages": {}
+}
