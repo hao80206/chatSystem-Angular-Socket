@@ -8,7 +8,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 
 const DATA_FILE = path.join(__dirname, 'data.json');
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 const app = express();
 app.use(cors());
@@ -133,6 +133,15 @@ io.on('connection', (socket) => {
     console.log('Socket disconnected:', socket.id, 'Reason:', reason);
   });
 
+  socket.on('createGroup', (req) => {
+    if (!req || !req.name) return;
+    const newId = data.groups.length ? Math.max(...data.groups.map(g => g.id)) + 1 : 1;
+    const newGroup = { id: newId, name: req.name, channels: [] };
+    data.groups.push(newGroup);
+    saveData();
+    io.emit('groupCreated', newGroup);
+  });
+
   socket.on('joinGroup', (payload) => {
     try {
       let groupId;
@@ -220,11 +229,25 @@ io.on('connection', (socket) => {
   });
 
   socket.on('requestJoinGroup', (req) => {
+    try {
     if (!req || !req.userId || !req.groupId) return;
-    data.joinRequests.push({ userId: String(req.userId), groupId: Number(req.groupId) });
-    saveData();
-    io.to(`group-${req.groupId}`).emit('groupRequest', { userId: String(req.userId), groupId: Number(req.groupId) });
-    io.emit('groupRequest', { userId: String(req.userId), groupId: Number(req.groupId) });
+      const userId = String(req.userId);
+      const groupId = Number(req.groupId);
+      const user = data.users.find(u => u.id === userId);
+      const group = data.groups.find(g => g.id === groupId);
+      if (!user || !group) return;
+      if(user.role.includes('GROUP_ADMIN') || user.role.includes('SUPER_ADMIN') )return;
+      if((user.groups || []).includes(groupId)) return;
+      if(!data.joinRequests) data.joinRequests = [];
+      const exist = data.joinRequests.find(r => r.userId === userId && r.groupId === groupId);
+      if(exist) return;
+      data.joinRequests.push({ userId, groupId });
+      saveData();
+      io.to(`group-${req.groupId}`).emit('groupRequest', { userId, groupId });
+      io.emit('groupRequest', { userId, groupId });
+    } catch (error) {
+      console.error('Error handling requestJoinGroup:', error);
+    }
   });
 
   socket.on('approveRequest', (req) => {
@@ -259,12 +282,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('promoteUser', (payload) => {
-    // broadcast to group room if groupId is provided, otherwise global
-    if (payload && payload.groupId) {
-      io.to(`group-${payload.groupId}`).emit('userPromoted', payload);
-    } else {
-      io.emit('userPromoted', payload);
+    const { userId, role, groupId } = payload;
+    const user = data.users.find(u => u.id === String(userId));
+    if (user && !user.role.includes(role)) {
+      user.role.push(role);
+      saveData();
     }
+    io.to(`group-${groupId}`).emit('userPromoted', payload);
   });
 
   socket.on('banUser', ({ channelId, userId }) => {
@@ -481,7 +505,6 @@ app.post('/api/groups', (req, res) => {
       const existingRequest = data.joinRequests.find(r => r.userId === user.id && r.groupId === newId);
       if (!existingRequest) {
         data.joinRequests.push({ userId: user.id, groupId: newId });
-        console.log(`Creating join request for group: ${newId} user: ${user.id}`);
       }
     });
     

@@ -27,7 +27,7 @@
         <h4>Group Admin can ban chat users and report to Super Admin</h4>
         <div *ngFor="let user of usersInGroup">
         <span>{{ user.username }}</span>
-        <button class="ban-btn" (click)="banUser(user.id)">Ban</button>
+        <button class="ban-btn" *ngIf="canBan(user)" (click)="banUser(user.id)">Ban</button>
         </div>
     </div>
 </div>

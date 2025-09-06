@@ -1,6 +1,8 @@
 import { Injectable, OnInit } from '@angular/core';
+import { BehaviorSubject } from 'rxjs';
 import { Group } from '../models/group.model';
 import { UserService } from './user.service';
+import { SocketService } from './socket.service';
 
 @Injectable({
   providedIn: 'root'
@@ -8,9 +10,10 @@ import { UserService } from './user.service';
 export class GroupService{
 
   private groups: Group[] = [];
+  private groups$ = new BehaviorSubject<Group[]>([]);
   private nextId = 1;
 
-  constructor(private userService: UserService) {
+  constructor(private userService: UserService, private socketService: SocketService) {
     const initialGroups = [
       'Group1 - Tulip',
       'Group2 - Calendula',
@@ -24,15 +27,30 @@ export class GroupService{
     initialGroups.forEach(name => {
       this.groups.push(new Group(this.nextId++, name, 'Super', []));
     });
-  };
+
+    this.groups$.next([...this.groups]);
+
+    // 🔑 Listen for new groups from the server
+    this.socketService.on('groupCreated', (group: Group) => {
+      console.log("New group received via socket:", group);
+      this.addGroup(group);
+    });
+  }
 
   // ---------------- HELPERS ---------------- //
   private currentUser() {
     return this.userService.getCurrentUser();
   }
 
-  getAllGroups(): Group[] {
-    return [...this.groups]; // return a copy
+  getAllGroups() {
+    return this.groups$.asObservable(); // components subscribe to this
+  }
+
+  addGroup(group: Group) {
+    if (!this.groups.find(g => g.id === group.id)) {
+      this.groups.push(group);
+      this.groups$.next([...this.groups]); // notify subscribers
+    }
   }
 
   private canManageGroup(group: Group): boolean {
@@ -59,14 +77,13 @@ export class GroupService{
   
     // Create new group
     const newGroup = new Group(this.nextId++, name, user.username);
-    this.groups.push(newGroup);
 
     // If creator is a group admin, add them to this group
-    if (this.userService.isGroupAdmin(user)) {
-      if (!user.groups.includes(newGroup.id)) {
-        user.groups.push(newGroup.id);
-      }
+    if (!user.groups.includes(newGroup.id)) {
+      user.groups.push(newGroup.id);
     }
+    this.groups.push(newGroup);
+    this.groups$.next([...this.groups]);
 
   // Add the new group to all super admins
   const superAdmins = this.userService.getAllSuperAdmins();
@@ -78,6 +95,7 @@ export class GroupService{
 
   return newGroup;
   };
+  
 
   // GROUP_ADMIN or SUPER_ADMIN can modify the name of group
   modifyGroup(groupId: number, newName: string){
@@ -109,6 +127,7 @@ export class GroupService{
     }
 
     this.groups.splice(groupIndex, 1);
+    this.groups$.next([...this.groups]);
     console.log('Group deleted:', group);
     return true;
   }

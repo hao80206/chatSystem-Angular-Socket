@@ -18,4 +18,13 @@ export class Navbar {
     this.router.navigate(['/login']);  //redirect to login
     console.log('current user logOut')
   }
+
+  goToDashboard() {
+    const user = this.userService.getCurrentUser();
+    if (!user) {
+      alert('Login first');
+      return;
+    }
+    this.router.navigate(['/dashboard']);
+  }
 }

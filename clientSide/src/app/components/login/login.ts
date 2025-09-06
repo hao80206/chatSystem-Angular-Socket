@@ -10,7 +10,8 @@ import { HttpClient } from '@angular/common/http';
   selector: 'app-login',
   imports: [Navbar, FormsModule],
   templateUrl: './login.html',
-  styleUrl: './login.css'
+  styleUrls: ['./login.css'],
+  standalone: true,
 })
 export class Login {
   private readonly API = 'http://localhost:3000';

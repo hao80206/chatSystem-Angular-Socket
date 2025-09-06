@@ -32,13 +32,13 @@
         </div>
       </div>
 
-      <!-- Create group button + form (visible only to admins) -->
+    <!-- Create group button + form (visible only to admins) -->
      <div class="create-group-area" *ngIf="canManageGroup()">
        <h3 class="text-center">Create New Group</h3>
-       <form (ngSubmit)="createGroup(groupNameInput.value)">
+       <form (ngSubmit)="createGroup()">
          <div class="form">
            <label>Group Name: </label>
-           <input #groupNameInput type="text" class="form-control" placeholder="Enter group name">
+           <input [(ngModel)]= "newGroupName" name="newGroupName" type="text" class="form-control" placeholder="Enter group name">
          </div>
          <button class="button" type="submit">Create Group</button>
        </form>
@@ -50,23 +50,9 @@
             
             <img [src]="'assets/Flowers/' + getImageFile(group)" alt="{{ group.name }}" class="group-image">
               <div class="group-name">{{ group.name }}</div>
-                <button class="register-button" (click)="joinGroupRequest(group.id)">Register</button>
+                <button class="register-button" (click)="requestJoinGroup(group.id)">Register</button>
               </div>
           </div>
-      </div>
-
-      <!-- Pending Join Requests Section (for group admins) -->
-      <div *ngIf="pendingRequests.length > 0" class="pending-requests-section">
-        <h3 class="heading">Pending Join Requests</h3>
-        <div class="pending-requests-list">
-          <div class="request-item" *ngFor="let request of pendingRequests">
-            <span class="request-info">User {{ request.userId }} wants to join Group {{ request.groupId }}</span>
-            <div class="request-buttons">
-              <button class="approve-btn" (click)="approveRequest(request)">Approve</button>
-              <button class="reject-btn" (click)="rejectRequest(request)">Reject</button>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- Normal user: Delete own account -->

@@ -19,7 +19,7 @@
       <div class="user-pending-list" *ngIf="canManageGroup()">
         <h2>Pending User Requests</h2>
         <div *ngFor="let req of pendingRequests">
-          <span>{{ userService.getUserById(req.userId)?.username }}</span>
+          <span>{{ (userService.getUserById(req.userId) || {}).username }}</span>
           <button class="list-btn" (click)="approveRequest(req)">Approve</button>
           <button class="list-btn" (click)="rejectRequest(req)">Reject</button>
         </div>
@@ -30,8 +30,8 @@
         <h2>Promote Users</h2>
         <div *ngFor="let user of usersInGroup">
           <span>{{ user.username }}</span><br>
-          <button class="list-btn" (click)="promoteUser(user,'SUPER_ADMIN')"> To Super Admin</button>
-          <button class="list-btn" (click)="promoteUser(user,'GROUP_ADMIN')">To Group Admin</button>
+          <button class="list-btn" (click)="promoteUser(user,'SUPER_ADMIN')" [disabled]="user.role.includes('SUPER_ADMIN')"> To Super Admin</button>
+          <button class="list-btn" (click)="promoteUser(user,'GROUP_ADMIN')" [disabled]="user.role.includes('GROUP_ADMIN')">To Group Admin</button>
         </div>
       </div>
     </div>
@@ -57,10 +57,10 @@
 
     <div class="create-new-channel" *ngIf="canManageGroup()">
       <h3 class="text-center">Create New Channel</h3>
-      <form (ngSubmit)="createChannel(channelNameInput.value)">
+      <form (ngSubmit)="createChannel()">
         <div class="form">
           <label>Channel Name: </label>
-          <input #channelNameInput type="text" class="form-control" placeholder="Enter channel name">
+          <input [(ngModel)]="newChannelName" name="channelName" type="text" class="form-control" placeholder="Enter channel name">
         </div>
         <button class="create-button" type="submit">Create Channel</button>
       </form>

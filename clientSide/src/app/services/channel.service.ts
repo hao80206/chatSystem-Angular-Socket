@@ -2,12 +2,15 @@ import { Injectable } from '@angular/core';
 import { User } from '../models/user.model';
 import { Channel } from '../models/channel.model';
 import { UserService } from './user.service';
+import { HttpClient } from '@angular/common/http';
 
 
 @Injectable({
   providedIn: 'root'
 })
 export class ChannelService {
+  private readonly API = 'http://localhost:3000';
+
   private channels: Channel[] = [
     { id: 101, groupId: 1, name: 'General', members: [], bannedUsers: [] },
     { id: 102, groupId: 1, name: 'News', members: [], bannedUsers: [] },
@@ -55,7 +58,9 @@ export class ChannelService {
     { id: 705, groupId: 7, name: 'Mystery', members: [], bannedUsers: [] },
   ];
 
-  constructor(private userService: UserService) { 
+  constructor(private userService: UserService, private http: HttpClient) { 
+
+    
     const savedChannels = localStorage.getItem('channels');
       if (savedChannels) {
         this.channels = JSON.parse(savedChannels);
@@ -73,32 +78,21 @@ export class ChannelService {
   };
 
   joinChannel(user: User, channelId: number): boolean {
-    const currentUser = this.userService.getCurrentUser();
-    if (!currentUser) return false;
-
-    const channel = this.getChannelById(channelId)
-    if(!channel) return false;
-
-    //chat user cannot join any channel if he is not a member of the group
-    if(!user.groups.includes(channel.groupId)){
-      return false
-    };
-    //check if a chat user is not banned
-    if(channel.bannedUsers.includes(user.id)) {
-      return false
-    };
-
-    if (!channel.members.includes(user.id)) {
-      channel.members.push(user.id);
-    }
-    
-    return true;
-  }
-
-  leaveChannel(user: User, channelId: number): boolean {
     const channel = this.getChannelById(channelId);
     if (!channel) return false;
-    channel.members = channel.members.filter(id => id !== user.id);
+
+    // Check if user is in group
+    if (!user.groups.includes(channel.groupId)) return false;
+
+    // Check if banned
+    if (channel.bannedUsers.includes(user.id)) return false;
+
+    // Add to members if not already
+    if (!channel.members.includes(user.id)) {
+      channel.members.push(user.id);
+      localStorage.setItem('channels', JSON.stringify(this.channels)); // persist changes
+    }
+
     return true;
   }
 
@@ -147,22 +141,20 @@ export class ChannelService {
     
   }
 
-  createChannel(groupId: number, name: string): Channel | null {
+  createChannel(groupId: number, name: string){
     
     const currentUser = this.userService.getCurrentUser();
     if (!currentUser) return null;
-
-    if (!this.userService.isSuperAdmin(currentUser) &&
-        !(this.userService.isGroupAdmin(currentUser) && currentUser.groups.includes(groupId))) {
-      console.log("You dont have permission to create new channel")
+  
+    if (
+      !this.userService.isSuperAdmin(currentUser) &&
+      !(this.userService.isGroupAdmin(currentUser) && currentUser.groups.includes(groupId))
+    ) {
+      console.log("You don't have permission to create new channel");
       return null;
     }
-
-    const newId = Math.max(...this.channels.map(c => c.id), 100) + 1;
-    const newChannel = { id: newId, groupId, name, members: [], bannedUsers: [] };
-    this.channels.push(newChannel);
-    console.log("New channel has created: ", newChannel)
-    return newChannel;
+  
+    return this.http.post<Channel>(`${this.API}/api/groups/${groupId}/channels`, { name });
   }
 
   deleteChannel(channelId: number | string): boolean {

@@ -12,45 +12,24 @@ export class UserService {
     { id: '4', username: 'Taylor', email: 'taylor@mail.com', password: '123', role: ['USER'], groups: [1,2,3,4] },
     { id: '5', username: 'Stella', email: 'stella@mail.com', password: '123', role: ['GROUP_ADMIN'], groups: [1,3,4]},
     { id: '6', username: 'Super', email: 'super@mail.com', password: '123', role: ['SUPER_ADMIN'], groups: [1,2,3,4,5,6,7] },
-
   ];
 
   currentUser: User | null = null;
-  pendingGroupRequests: { userId: string, groupId: number }[] = [];
+  pendingRequests: { userId: string, groupId: number, username: string}[] = [];
 
   constructor() {
-    // Load from localStorage if exists
-    const saved = localStorage.getItem('currentUser');
+    const saved = localStorage.getItem('currentUser'); 
     if (saved) {
-      const parsed = JSON.parse(saved);
-      // Restore as User object
-      this.currentUser = {
-        id: parsed.id,
-        username: parsed.username,
-        email: parsed.email,
-        password: parsed.password,
-        role: parsed.role,
-        groups: parsed.groups
-      }
+      this.currentUser = JSON.parse(saved);
     }
   }
 
-
-// ----------- AUTHENTICATION ----------- //
-
+  // ----------- AUTHENTICATION ----------- //
   login(username: string, password: string): boolean {
     const user = this.dummyUsers.find(u => u.username === username && u.password === password);
     if (user) {
       this.currentUser = user;
-      localStorage.setItem('currentUser', JSON.stringify({
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        password: user.password,
-        role: user.role,
-        groups: user.groups
-      }));
-
+      localStorage.setItem('currentUser', JSON.stringify(user));
       return true;
     }
     return false;
@@ -58,146 +37,17 @@ export class UserService {
 
   logout() {
     this.currentUser = null;
+    localStorage.removeItem('currentUser');
   }
 
   getCurrentUser(): User | null {
     return this.currentUser;
   }
 
-  getUserById(userId: string): User | null {
-    return this.dummyUsers.find(u => u.id === userId) || null;
+  getUserById(userId: string): User | undefined {
+    return this.getAllUsers().find(u => u.id === userId);
   }
 
-// ------------- CHAT USER ------------- //
-  createUser(newUser: User) {
-    const exist = this.dummyUsers.some(u => u.username === newUser.username)
-    if (!exist) {
-      this.dummyUsers.push(newUser);
-      return true;
-    }
-      console.error("username must be unique");
-      return false
-  };
-
-  leaveGroup(user: User, groupId: number) {
-    user.groups = user.groups.filter(g => g !== groupId)
-  }
-
-  // Register interest for a group
-  registerNewGroup(user: User, groupId: number): boolean {
-    if (user.groups.includes(groupId)) return false; // already a member
-
-    const exists = this.pendingGroupRequests.some(r => r.userId === user.id && r.groupId === groupId);
-
-    if (exists) {
-      alert("User already requested to join this group. Please wait for a moment");
-      return false;
-    } 
-
-    this.pendingGroupRequests.push({ userId: user.id, groupId });
-    console.log("New group registration request submitted:", groupId);
-    alert("New group registration request submitted:");
-    return true;
-  }
-
-  deleteSelf(user: User) {
-    this.dummyUsers = this.dummyUsers.filter(u => u.id !== user.id);
-    if (this.currentUser?.id === user.id) {
-      this.logout();
-    }
-  }
-
-
-// ----------- BOTH SUPER AND GROUP ADMINISTRATOR ----------- //
-
-getUsersByGroup(groupId: number): User[] {
-  const currentUser = this.getCurrentUser();
-
-  if (!currentUser) return [];
-
-  // SUPER_ADMIN can see all users in the group
-  if (currentUser.role.includes('SUPER_ADMIN')) {
-    return this.dummyUsers.filter(user => user.groups.includes(groupId));
-  }
-
-  // GROUP_ADMIN can see users in the same group
-  if (currentUser.role.includes('GROUP_ADMIN') && currentUser.groups.includes(groupId)) {
-    return this.dummyUsers.filter(user => user.groups.includes(groupId));
-  }
-
-  // Normal USER shouldn't see the list
-  return [];
-}
-
-requestJoinGroup(user: User, groupId: number) {
-  // Locally add pending request
-  this.pendingGroupRequests.push({ userId: user.id, groupId });
-}
-
-
-  createGroup(groupId: number, user: User) {
-    // Assign the group to the user as admin
-    if (!user.groups.includes(groupId)) {
-      user.groups.push(groupId)
-    };
-    if (!user.role.includes('GROUP_ADMIN')) {
-      user.role.push('GROUP_ADMIN')
-    }
-  }
-
-  removeGroup(groupId: number, admin: User) {
-    if (admin.role.includes('GROUP_ADMIN') && admin.groups.includes(groupId)) {
-      // Remove this group from all users
-      this.dummyUsers.forEach(u => {
-        u.groups = u.groups.filter(g => g !== groupId);
-      });
-    }
-  }
-
-  removeUserFromGroup(user: User, groupId: number, admin: User) {
-    if (admin.role.includes('GROUP_ADMIN') && admin.groups.includes(groupId)) {
-      user.groups = user.groups.filter(g => g !== groupId);
-    }
-  }
-
-  letUserJoinGroup(user: User, groupId: number, admin: User): boolean {
-    if (!this.isGroupAdmin(admin) && !this.isSuperAdmin(admin)) return false;
-
-    const reqIndex = this.pendingGroupRequests.findIndex(r => r.userId === user.id && r.groupId === groupId);
-    if (reqIndex === -1) return false;
-
-    user.groups.push(groupId);
-    this.pendingGroupRequests.splice(reqIndex, 1);
-    return true;
-  }
-
-  // ----------- SUPER ADMINISTRATOR ----------- //
-
-  promoteUser(user: User, role: 'SUPER_ADMIN' | 'GROUP_ADMIN', groupId?: number) {
-    const currentUser = this.getCurrentUser();
-    if (!currentUser || !this.isSuperAdmin(currentUser)) {
-      console.warn("Only SUPER_ADMIN can promote users.");
-      return false;
-    }
-  
-    if (role === 'SUPER_ADMIN') {
-      if (!user.role.includes('SUPER_ADMIN')) user.role.push('SUPER_ADMIN');
-    }
-  
-    if (role === 'GROUP_ADMIN') {
-      if (!user.role.includes('GROUP_ADMIN')) user.role.push('GROUP_ADMIN');
-      if (groupId && !user.groups.includes(groupId)) user.groups.push(groupId);
-    }
-  
-    console.log(`User ${user.username} promoted to ${role}`);
-    return true;
-  }
-  
-  removeUser(user: User) {
-    this.dummyUsers = this.dummyUsers.filter(u => u.id !== user.id);
-    if (this.currentUser?.id === user.id) this.logout();
-  }
-  // -------- Helpers -------- //
   getAllUsers(): User[] {
     return this.dummyUsers;
   }
@@ -206,18 +56,103 @@ requestJoinGroup(user: User, groupId: number) {
     return this.dummyUsers.filter(u => u.role.includes('SUPER_ADMIN'));
   }
 
-  isSuperAdmin(u: User | null): boolean {
-    return !!u && u.role.includes('SUPER_ADMIN');
+  createUser(newUser: User): boolean {
+    const exist = this.dummyUsers.some(u => u.username === newUser.username);
+    if (!exist) {
+      this.dummyUsers.push(newUser);
+      return true;
+    }
+    console.error("Username must be unique");
+    return false;
   }
 
-  isGroupAdmin(u: User | null): boolean {
-    return !!u && u.role.includes('GROUP_ADMIN');
+  deleteSelf(user: User) {
+    this.dummyUsers = this.dummyUsers.filter(u => u.id !== user.id);
+    if (this.currentUser?.id === user.id) this.logout();
   }
 
-  // Can this user manage a given group? (SUPER can manage all, GROUP_ADMIN only their groups)
-  public canManageGroup(u: User | null, groupId: number): boolean {
-    if (!u) return false;
-    if (u.role.includes('SUPER_ADMIN')) return true;
-    return u.role.includes('GROUP_ADMIN') && u.groups.includes(groupId);
+  leaveGroup(user: User, groupId: number) {
+    user.groups = user.groups.filter(g => g !== groupId);
+  }
+
+  registerNewGroup(user: User, groupId: number): boolean {
+    if (user.groups.includes(groupId)) return false;
+    const exists = this.pendingRequests.some(r => r.userId === user.id && r.groupId === groupId);
+    if (exists) {
+      alert("User already requested to join this group. Please wait.");
+      return false;
+    }
+    this.pendingRequests.push({ userId: user.id, groupId, username: user.username });
+    alert("New group registration request submitted!");
+    return true;
+  }
+
+  // ----------- GROUP MANAGEMENT ----------- //
+  isSuperAdmin(user: User): boolean {
+    return user.role.includes('SUPER_ADMIN');
+  }
+
+  isGroupAdmin(user: User): boolean {
+    return user.role.includes('GROUP_ADMIN');
+  }
+
+  canManageGroup(user: User, groupId: number): boolean {
+    return this.isSuperAdmin(user) || (this.isGroupAdmin(user) && user.groups.includes(groupId));
+  }
+
+  getUsersByGroup(groupId: number): User[] {
+    const currentUser = this.getCurrentUser();
+    if (!currentUser) return [];
+
+    if (this.isSuperAdmin(currentUser) || (this.isGroupAdmin(currentUser) && currentUser.groups.includes(groupId))) {
+      return this.dummyUsers.filter(u => u.groups.includes(groupId));
+    }
+    return [];
+  }
+
+  removeUserFromGroup(user: User, groupId: number, admin: User) {
+    if (this.canManageGroup(admin, groupId)) {
+      user.groups = user.groups.filter(g => g !== groupId);
+    }
+  }
+
+  letUserJoinGroup(user: User, groupId: number, admin: User): boolean {
+    if (!this.canManageGroup(admin, groupId)) return false;
+    const reqIndex = this.pendingRequests.findIndex(r => r.userId === user.id && r.groupId === groupId);
+    if (reqIndex === -1) return false;
+    user.groups.push(groupId);
+    this.pendingRequests.splice(reqIndex, 1);
+    return true;
+  }
+
+  createGroup(groupId: number, user: User) {
+    if (!user.groups.includes(groupId)) user.groups.push(groupId);
+    if (!user.role.includes('GROUP_ADMIN')) user.role.push('GROUP_ADMIN');
+  }
+
+  removeGroup(groupId: number, admin: User) {
+    if (this.isGroupAdmin(admin) && admin.groups.includes(groupId)) {
+      this.dummyUsers.forEach(u => {
+        u.groups = u.groups.filter(g => g !== groupId);
+      });
+    }
+  }
+
+  // ----------- SUPER ADMIN ----------- //
+  promoteUser(user: User, role: 'SUPER_ADMIN' | 'GROUP_ADMIN', groupId?: number) {
+    const currentUser = this.getCurrentUser();
+    if (!currentUser || !this.isSuperAdmin(currentUser)) return false;
+
+    if (role === 'SUPER_ADMIN' && !user.role.includes('SUPER_ADMIN')) user.role.push('SUPER_ADMIN');
+    if (role === 'GROUP_ADMIN') {
+      if (!user.role.includes('GROUP_ADMIN')) user.role.push('GROUP_ADMIN');
+      if (groupId && !user.groups.includes(groupId)) user.groups.push(groupId);
+    }
+    return true;
+  }
+
+  removeUser(user: User) {
+    this.dummyUsers = this.dummyUsers.filter(u => u.id !== user.id);
+    if (this.currentUser?.id === user.id) this.logout();
   }
 }
