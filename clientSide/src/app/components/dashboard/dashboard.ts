@@ -11,6 +11,7 @@ import { Group } from '../../models/group.model';
 import { HttpClientModule } from '@angular/common/http';
 import { HttpClient } from '@angular/common/http';
 import { Subscription } from 'rxjs';
+import { AuthService } from '../../services/auth.service';
 
 
 @Component({
@@ -34,6 +35,7 @@ export class Dashboard implements OnInit, OnDestroy {
     private router: Router,
     private socketService: SocketService,
     private http: HttpClient,
+    private authService: AuthService
   ) {
 
   }
@@ -44,7 +46,7 @@ export class Dashboard implements OnInit, OnDestroy {
 
     // Subscribe to group changes
     const groupSub = this.groupService.getAllGroups().subscribe(groups => {
-      const currentUser = this.userService.getCurrentUser(); // always fresh
+      const currentUser = this.authService.getCurrentUser(); // always fresh
       this.recomputeLists(groups, currentUser);
     });
     this.subs.push(groupSub);
@@ -91,13 +93,23 @@ export class Dashboard implements OnInit, OnDestroy {
         return;
       }
 
-      this.userGroups = groups.filter(g => currentUser.groups.includes(g.id));
-      this.otherGroups = groups.filter(g => !currentUser.groups.includes(g.id));
-
+      // SUPER_ADMIN: access to all groups, "other" section empty
       if (currentUser.role.includes('SUPER_ADMIN')) {
         this.userGroups = groups;
         this.otherGroups = [];
+        return;
       }
+
+      // GROUP_ADMIN: show only groups they manage in "My Groups"
+      if (currentUser.role.includes('GROUP_ADMIN')) {
+        this.userGroups = groups.filter(g => currentUser.groups.includes(g.id));
+        this.otherGroups = groups.filter(g => !currentUser.groups.includes(g.id));
+        return;
+      }
+
+      // Regular user
+      this.userGroups = groups.filter(g => currentUser.groups.includes(g.id));
+      this.otherGroups = groups.filter(g => !currentUser.groups.includes(g.id));
   }
 
   // ---------- Actions ---------- //
@@ -140,7 +152,7 @@ export class Dashboard implements OnInit, OnDestroy {
     this.http.delete(`${this.API_URL}/users/${user.id}`)
       .subscribe({
         next: () => {
-          this.userService.logout();
+          this.authService.logout();
           this.router.navigate(['/login']);
         },
         error: (err) => {

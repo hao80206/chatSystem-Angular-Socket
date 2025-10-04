@@ -6,7 +6,8 @@
       "email": "alice@mail.com",
       "password": "123",
       "role": [
-        "USER"
+        "USER",
+        "GROUP_ADMIN"
       ],
       "groups": [
         1,
@@ -91,6 +92,31 @@
         6,
         7
       ]
+    },
+    {
+      "id": "7",
+      "username": "Hao",
+      "email": "hao@example.com",
+      "password": "123",
+      "role": [
+        "USER"
+      ],
+      "groups": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "8",
+      "username": "user",
+      "email": "user@example.com",
+      "password": "123",
+      "role": [
+        "USER"
+      ],
+      "groups": [
+        2
+      ]
     }
   ],
   "groups": [
@@ -105,7 +131,8 @@
         104,
         105,
         106,
-        107
+        107,
+        108
       ]
     },
     {
@@ -187,7 +214,9 @@
       "id": 101,
       "groupId": 1,
       "name": "General",
-      "members": [],
+      "members": [
+        "1"
+      ],
       "bannedUsers": []
     },
     {
@@ -448,8 +477,78 @@
       "name": "Mystery",
       "members": [],
       "bannedUsers": []
+    },
+    {
+      "id": 108,
+      "groupId": 1,
+      "name": "Cosmetics",
+      "members": [],
+      "bannedUsers": []
     }
   ],
-  "joinRequests": [],
-  "messages": {}
+  "joinRequests": [
+    {
+      "userId": "7",
+      "groupId": 3
+    },
+    {
+      "userId": "7",
+      "groupId": 4
+    },
+    {
+      "userId": "7",
+      "groupId": 5
+    },
+    {
+      "userId": "7",
+      "groupId": 6
+    },
+    {
+      "userId": "7",
+      "groupId": 7
+    },
+    {
+      "userId": "8",
+      "groupId": 1
+    },
+    {
+      "userId": "8",
+      "groupId": 3
+    },
+    {
+      "userId": "8",
+      "groupId": 4
+    },
+    {
+      "userId": "8",
+      "groupId": 5
+    },
+    {
+      "userId": "8",
+      "groupId": 6
+    },
+    {
+      "userId": "8",
+      "groupId": 7
+    }
+  ],
+  "messages": {
+    "101": [
+      {
+        "user": "Stella",
+        "text": "hello",
+        "timestamp": "2025-09-11T01:19:25.596Z"
+      },
+      {
+        "user": "Alice",
+        "text": "Hi!",
+        "timestamp": "2025-10-04T02:20:06.099Z"
+      },
+      {
+        "user": "Kevin",
+        "text": "Nice to meet you",
+        "timestamp": "2025-10-04T02:21:00.573Z"
+      }
+    ]
+  }
 }

@@ -5,6 +5,7 @@ import { Navbar } from '../navbar/navbar';
 import { UserService } from '../../services/user.service';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -19,7 +20,8 @@ export class Login {
   constructor(
     private router: Router, 
     private userService: UserService,
-    private http: HttpClient
+    private http: HttpClient,
+    private authService: AuthService
   ) { }
 
   // LOGIN FUNCTION
@@ -29,13 +31,16 @@ export class Login {
       return;
     }
 
-    const success = this.userService.login(username, password);
-    if (success) {
-      console.log('Logged in as:', this.userService.getCurrentUser());
-      this.router.navigate(['/dashboard']);
-    } else {
-      alert('Invalid username or password');
-    }
+    this.authService.login(username, password).subscribe({
+      next: (user) => {
+        console.log('Logged in as:', user);
+        this.router.navigate(['/dashboard']);
+      },
+      error: (err) => {
+        console.error(err);
+        alert(err.error?.error || 'Invalid username or password');
+      }
+    });
   }
 
   // REGISTER FUNCTION
@@ -66,7 +71,7 @@ export class Login {
         this.userService.createUser(newUser);
         
         // Login the user
-        const loginSuccess = this.userService.login(username, password);
+        const loginSuccess = this.authService.login(username, password);
         if (loginSuccess) {
           alert('Account created successfully! You are now pending admin approval for all groups.');
           this.router.navigate(['/dashboard']);

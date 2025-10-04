@@ -25,15 +25,6 @@ export class UserService {
   }
 
   // ----------- AUTHENTICATION ----------- //
-  login(username: string, password: string): boolean {
-    const user = this.dummyUsers.find(u => u.username === username && u.password === password);
-    if (user) {
-      this.currentUser = user;
-      localStorage.setItem('currentUser', JSON.stringify(user));
-      return true;
-    }
-    return false;
-  }
 
   logout() {
     this.currentUser = null;

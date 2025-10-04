@@ -93,18 +93,13 @@ export class ChannelChat implements OnInit, OnDestroy {
     this.http.get<any[]>(`${this.API}/api/channels/${this.channelId}/messages`).subscribe({
       next: (messages) => {
         this.messages = messages.map(msg => ({
-          ...msg,
+          user: msg.senderName || msg.user,
+          text: msg.content || msg.text,
           timestamp: new Date(msg.timestamp)
         }));
       },
       error: (err) => {
         console.error('Failed to load messages:', err);
-        // Fallback to dummy messages
-        this.messages = [
-          { user: 'Alice', text: 'Welcome to the channel!', timestamp: new Date(Date.now() - 60000) },
-          { user: 'Bob', text: 'Hi everyone!', timestamp: new Date(Date.now() - 45000) },
-          { user: 'Charlie', text: 'Let\'s start our discussion.', timestamp: new Date(Date.now() - 30000) },
-        ];
       }
     });
   }

@@ -1,18 +1,19 @@
-// server.js
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const { Server } = require('socket.io');
-const fs = require('fs');
 const bodyParser = require('body-parser');
-const path = require('path');
 
-const DATA_FILE = path.join(__dirname, 'data.json');
-const PORT = 3000;
+const { connectDB, getDB } = require('../App/app');
+const userService = require('../App/user');
+const groupService = require('../App/group');
+const channelService = require('../App/channel');
 
 const app = express();
+const PORT = 3000
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -22,812 +23,654 @@ const io = new Server(server, {
   }
 });
 
-// -------------------- In-memory data + persistence --------------------
-let data = {
-  users: [],
-  groups: [],
-  channels: [],
-  joinRequests: [], // { userId: '1', groupId: 2 }
-  messages: {} // Store messages by channelId
-};
+// -------------------- MongoDB --------------------
+let db;
+connectDB()
+  .then(() => {
+    db = getDB();
+    console.log('DB connected');
+  })
+  .catch(console.error);
+  
 
-function saveData() {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-}
-
-function initializeDummy() {
-  data.users = [
-    { id: '1', username: 'Alice', email: 'alice@mail.com', password: '123', role: ['USER'], groups: [1,2,5,7] },
-    { id: '2', username: 'Bob', email: 'bob@mail.com', password: '123', role: ['USER'], groups: [2,3,6,7] },
-    { id: '3', username: 'Kevin', email: 'kevin@mail.com', password: '123', role: ['USER'], groups: [1,4,6,7] },
-    { id: '4', username: 'Taylor', email: 'taylor@mail.com', password: '123', role: ['USER'], groups: [1,2,3,4] },
-    { id: '5', username: 'Stella', email: 'stella@mail.com', password: '123', role: ['GROUP_ADMIN'], groups: [1,3,4]},
-    { id: '6', username: 'Super', email: 'super@mail.com', password: '123', role: ['SUPER_ADMIN'], groups: [1,2,3,4,5,6,7] }
-  ];
-
-  data.groups = [
-    { id: 1, name: 'Group1 - Tulip', createdBy: 'Super', channels: [101,102,103,104,105,106,107] },
-    { id: 2, name: 'Group2 - Calendula', createdBy: 'Super', channels: [201,202,203,204,205,206] },
-    { id: 3, name: 'Group3 - Lavender', createdBy: 'Super', channels: [301,302,303,304,305] },
-    { id: 4, name: 'Group4 - Lily', createdBy: 'Super', channels: [401,402,403,404,405] },
-    { id: 5, name: 'Group5 - Marigold', createdBy: 'Super', channels: [501,502,503,504,505] },
-    { id: 6, name: 'Group6 - Rose', createdBy: 'Super', channels: [601,602,603,604,605] },
-    { id: 7, name: 'Group7 - Jasmine', createdBy: 'Super', channels: [701,702,703,704,705] }
-  ];
-
-  data.channels = [
-    { id: 101, groupId: 1, name: 'General', members: [], bannedUsers: [] },
-    { id: 102, groupId: 1, name: 'News', members: [], bannedUsers: [] },
-    { id: 103, groupId: 1, name: 'Trip', members: [], bannedUsers: [] },
-    { id: 104, groupId: 1, name: 'Beauty', members: [], bannedUsers: [] },
-    { id: 105, groupId: 1, name: 'Comedy', members: [], bannedUsers: [] },
-    { id: 106, groupId: 1, name: 'Cooking', members: [], bannedUsers: [] },
-    { id: 107, groupId: 1, name: 'Exercise', members: [], bannedUsers: [] },
-    { id: 201, groupId: 2, name: 'News', members: [], bannedUsers: [] },
-    { id: 202, groupId: 2, name: 'Games', members: [], bannedUsers: [] },
-    { id: 203, groupId: 2, name: 'Trip', members: [], bannedUsers: [] },
-    { id: 204, groupId: 2, name: 'Beauty', members: [], bannedUsers: [] },
-    { id: 205, groupId: 2, name: 'Comedy', members: [], bannedUsers: [] },
-    { id: 206, groupId: 2, name: 'Cooking', members: [], bannedUsers: [] },
-    { id: 301, groupId: 3, name: 'News', members: [], bannedUsers: [] },
-    { id: 302, groupId: 3, name: 'General', members: [], bannedUsers: [] },
-    { id: 303, groupId: 3, name: 'Trip', members: [], bannedUsers: [] },
-    { id: 304, groupId: 3, name: 'Beauty', members: [], bannedUsers: [] },
-    { id: 305, groupId: 3, name: 'Games', members: [], bannedUsers: [] },
-    { id: 401, groupId: 4, name: 'General', members: [], bannedUsers: [] },
-    { id: 402, groupId: 4, name: 'WorldHeritage', members: [], bannedUsers: [] },
-    { id: 403, groupId: 4, name: 'Cosmetics', members: [], bannedUsers: [] },
-    { id: 404, groupId: 4, name: 'Vlog', members: [], bannedUsers: [] },
-    { id: 405, groupId: 4, name: 'Mystery', members: [], bannedUsers: [] },
-    { id: 501, groupId: 5, name: 'News', members: [], bannedUsers: [] },
-    { id: 502, groupId: 5, name: 'Comedy', members: [], bannedUsers: [] },
-    { id: 503, groupId: 5, name: 'Vlog', members: [], bannedUsers: [] },
-    { id: 504, groupId: 5, name: 'Beauty', members: [], bannedUsers: [] },
-    { id: 505, groupId: 5, name: 'Games', members: [], bannedUsers: [] },
-    { id: 601, groupId: 6, name: 'News', members: [], bannedUsers: [] },
-    { id: 602, groupId: 6, name: 'Comedy', members: [], bannedUsers: [] },
-    { id: 603, groupId: 6, name: 'Vlog', members: [], bannedUsers: [] },
-    { id: 604, groupId: 6, name: 'Beauty', members: [], bannedUsers: [] },
-    { id: 605, groupId: 6, name: 'Cooking', members: [], bannedUsers: [] },
-    { id: 701, groupId: 7, name: 'General', members: [], bannedUsers: [] },
-    { id: 702, groupId: 7, name: 'Vlog', members: [], bannedUsers: [] },
-    { id: 703, groupId: 7, name: 'WorldHeritage', members: [], bannedUsers: [] },
-    { id: 704, groupId: 7, name: 'Trip', members: [], bannedUsers: [] },
-    { id: 705, groupId: 7, name: 'Mystery', members: [], bannedUsers: [] }
-  ];
-
-  data.joinRequests = [];
-  data.messages = {};
-}
-
-function loadData() {
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      const raw = fs.readFileSync(DATA_FILE);
-      data = JSON.parse(raw);
-      console.log('Loaded data.json');
-    } else {
-      initializeDummy();
-      saveData();
-      console.log('Initialized dummy data and saved to data.json');
-    }
-  } catch (err) {
-    console.error('Error loading data.json. Reinitializing.', err);
-    initializeDummy();
-    saveData();
+  // -------------------- Helper Functions --------------------
+  async function saveUser(user) {
+    await db.collection('users').updateOne({ id: user.id }, { $set: user }, { upsert: true });
   }
-}
 
-loadData();
+  async function saveGroup(group) {
+    await db.collection('groups').updateOne({ id: group.id }, { $set: group }, { upsert: true });
+  }
+
+  async function saveChannel(channel) {
+    await db.collection('channels').updateOne({ id: channel.id }, { $set: channel }, { upsert: true });
+  }
+
+  async function saveJoinRequest(request) {
+    await db.collection('joinRequests').updateOne(
+      { userId: request.userId, groupId: request.groupId },
+      { $set: request },
+      { upsert: true }
+    );
+  }
 
 // -------------------- Socket.IO --------------------
 io.on('connection', (socket) => {
   console.log('Socket connected:', socket.id);
+  socket.on('error', (error) => console.error('Socket error:', error));
+  socket.on('disconnect', (reason) => console.log('Socket disconnected:', socket.id, 'Reason:', reason));
 
-  // Handle socket errors
-  socket.on('error', (error) => {
-    console.error('Socket error:', error);
-  });
+  // -------------------- SOCKET HANDLERS --------------------
 
-  socket.on('disconnect', (reason) => {
-    console.log('Socket disconnected:', socket.id, 'Reason:', reason);
-  });
-
-  socket.on('createGroup', (req) => {
-    if (!req || !req.name) return;
-    const newId = data.groups.length ? Math.max(...data.groups.map(g => g.id)) + 1 : 1;
-    const newGroup = { id: newId, name: req.name, channels: [] };
-    data.groups.push(newGroup);
-    saveData();
-    io.emit('groupCreated', newGroup);
-  });
-
-  socket.on('joinGroup', (payload) => {
+  //　CREATE GROUP
+  socket.on('createGroup', async ({ name }) => {
+    if (!name || !db) return;
     try {
-      let groupId;
-      if (typeof payload === 'object') groupId = payload.groupId;
-      else groupId = payload;
-      if (groupId !== undefined && groupId !== null) {
-        socket.join(`group-${groupId}`);
-        console.log(`${socket.id} joined group-${groupId}`);
-      }
-    } catch (error) {
-      console.error('Error in joinGroup:', error);
+      const result = await db.collection('groups').insertOne({ name, channels: [] });
+      io.emit('groupCreated', result.ops[0] || { ...result, id: result.insertedId });
+    } catch (err) {
+      console.error(err);
     }
   });
 
+  // JOIN GROUP
+  socket.on('joinGroup', ({ groupId }) => {
+    if (!groupId) return;
+    socket.join(`group-${groupId}`);
+    console.log(`${socket.id} joined group-${groupId}`);
+  });
+   
+  // JOIN USER
   socket.on('joinUser', ({ userId }) => {
     if (userId) socket.join(`user-${userId}`);
   });
 
-  socket.on('joinChannel', ({ channelId, userId }) => {
+  // JOIN CHANNEL
+  socket.on('joinChannel', async ({ channelId, userId }) => {
+    if (!channelId || !userId || !db) return;
+    socket.join(`channel_${channelId}`);
+    console.log(`${socket.id} joined channel_${channelId}`);
     try {
-      if (channelId && userId) {
-        socket.join(`channel_${channelId}`);
-        console.log(`${socket.id} joined channel_${channelId}`);
-        
-        // Add user to channel members if not already there
-        const channel = data.channels.find(c => c.id === channelId);
-        if (channel && !channel.members.includes(userId)) {
-          channel.members.push(userId);
-          saveData();
-        }
-      }
-    } catch (error) {
-      console.error('Error in joinChannel:', error);
+      await db.collection('channels').updateOne(
+        { id: channelId },
+        { $addToSet: { members: userId } }
+      );
+    } catch (err) {
+      console.error(err);
     }
   });
 
-  socket.on('leaveChannel', ({ channelId, userId }) => {
+  //LEAVE CHANNEL
+  socket.on('leaveChannel', async ({ channelId, userId }) => {
+    if (!channelId || !userId || !db) return;
+    socket.leave(`channel_${channelId}`);
+    console.log(`${socket.id} left channel_${channelId}`);
     try {
-      if (channelId && userId) {
-        socket.leave(`channel_${channelId}`);
-        console.log(`${socket.id} left channel_${channelId}`);
-        
-        // Remove user from channel members
-        const channel = data.channels.find(c => c.id === channelId);
-        if (channel) {
-          channel.members = channel.members.filter(id => id !== userId);
-          saveData();
-        }
-      }
-    } catch (error) {
-      console.error('Error in leaveChannel:', error);
+      await db.collection('channels').updateOne(
+        { id: channelId },
+        { $pull: { members: userId } }
+      );
+    } catch (err) {
+      console.error(err);
     }
   });
 
-  socket.on('sendMessage', (message) => {
+  //SEND MESSAGES
+  socket.on('sendMessage', async (message) => {
+    if (!message || !message.channelId || !message.user || !message.text || !db) return;
+    const msg = { ...message, timestamp: message.timestamp || new Date() };
     try {
-      if (!message.channelId || !message.user || !message.text) return;
-      
-      // Initialize data.messages if it doesn't exist
-      if (!data.messages) {
-        data.messages = {};
-      }
-      
-      // Store message in data
-      if (!data.messages[message.channelId]) {
-        data.messages[message.channelId] = [];
-      }
-      data.messages[message.channelId].push({
-        user: message.user,
-        text: message.text,
-        timestamp: message.timestamp || new Date()
-      });
-      
-      // Broadcast message to all users in the channel
-      io.to(`channel_${message.channelId}`).emit('receiveMessage', {
-        user: message.user,
-        text: message.text,
-        timestamp: message.timestamp || new Date()
-      });
-      
+      await db.collection('messages').updateOne(
+        { channelId: message.channelId },
+        { $push: { messages: msg } },
+        { upsert: true }
+      );
+      io.to(`channel_${message.channelId}`).emit('receiveMessage', msg);
       console.log(`Message sent in channel ${message.channelId}: ${message.user}: ${message.text}`);
-    } catch (error) {
-      console.error('Error handling sendMessage:', error);
+    } catch (err) {
+      console.error(err);
     }
   });
 
-  socket.on('requestJoinGroup', (req) => {
-    try {
+  //REQUEST JOIN GROUP
+  socket.on('requestJoinGroup', async ({userId, groupId}) => {
     if (!req || !req.userId || !req.groupId) return;
-      const userId = String(req.userId);
-      const groupId = Number(req.groupId);
-      const user = data.users.find(u => u.id === userId);
-      const group = data.groups.find(g => g.id === groupId);
+    try {
+      const user = await db.collection('users').findOne({ id: String(userId) });
+      const group = await db.collection('groups').findOne({ id: Number(groupId) });
       if (!user || !group) return;
-      if(user.role.includes('GROUP_ADMIN') || user.role.includes('SUPER_ADMIN') )return;
-      if((user.groups || []).includes(groupId)) return;
-      if(!data.joinRequests) data.joinRequests = [];
-      const exist = data.joinRequests.find(r => r.userId === userId && r.groupId === groupId);
-      if(exist) return;
-      data.joinRequests.push({ userId, groupId });
-      saveData();
-      io.to(`group-${req.groupId}`).emit('groupRequest', { userId, groupId });
-      io.emit('groupRequest', { userId, groupId });
-    } catch (error) {
-      console.error('Error handling requestJoinGroup:', error);
-    }
-  });
+      if ((user.groups || []).includes(Number(groupId))) {
+        console.log("You're a member of this Group");
+        return
+      };
 
-  socket.on('approveRequest', (req) => {
-    const idx = data.joinRequests.findIndex(r => r.userId === String(req.userId) && r.groupId === Number(req.groupId));
-    if (idx !== -1) {
-      const user = data.users.find(u => u.id === String(req.userId));
-      if (user && !user.groups.includes(Number(req.groupId))) user.groups.push(Number(req.groupId));
-      data.joinRequests.splice(idx, 1);
-      saveData();
-      io.to(`group-${req.groupId}`).emit('requestApproved', req.userId);
-      io.emit('requestApproved', req.userId);
-    }
-  });
-
-  socket.on('rejectRequest', (req) => {
-    const idx = data.joinRequests.findIndex(r => r.userId === String(req.userId) && r.groupId === Number(req.groupId));
-    if (idx !== -1) {
-      data.joinRequests.splice(idx, 1);
-      saveData();
-      io.to(`group-${req.groupId}`).emit('requestRejected', req.userId);
-      io.emit('requestRejected', req.userId);
-    }
-  });
-
-  socket.on('createChannel', (channel) => {
-    if (!channel || !channel.groupId) return;
-    io.to(`group-${channel.groupId}`).emit('channelCreated', channel);
-  });
-
-  socket.on('deleteChannel', ({ channelId, groupId }) => {
-    io.to(`group-${groupId}`).emit('channelDeleted', channelId);
-  });
-
-  socket.on('promoteUser', (payload) => {
-    const { userId, role, groupId } = payload;
-    const user = data.users.find(u => u.id === String(userId));
-    if (user && !user.role.includes(role)) {
-      user.role.push(role);
-      saveData();
-    }
-    io.to(`group-${groupId}`).emit('userPromoted', payload);
-  });
-
-  socket.on('banUser', ({ channelId, userId }) => {
-    // Find the channel and update the data structure
-    const channel = data.channels.find(c => c.id === channelId);
-    if (channel) {
-      // Add user to banned list
-      if (!channel.bannedUsers.includes(userId)) {
-        channel.bannedUsers.push(userId);
+      const existingRequest = await db.collection('joinRequests').findOne({ userId: String(userId), groupId: Number(groupId) });
+      if (existingRequest) {
+        console.log("You've already sent request. Please wait a moment");
+        return;
       }
-      // Remove user from members
-      channel.members = channel.members.filter(id => id !== userId);
-      saveData();
-      
-      // Broadcast ban event to channel
-      io.to(`channel_${channelId}`).emit('userBanned', userId);
-      
-      // Also broadcast to group for admin notifications
-      io.to(`group-${channel.groupId}`).emit('userBannedFromChannel', { channelId, userId });
-      
-      console.log(`User ${userId} banned from channel ${channelId}`);
+      const newRequest = { userId: String(userId), groupId: Number(groupId) };
+      await saveJoinRequest(newRequest);
+
+      io.to(`group-${groupId}`).emit('groupRequest', newRequest);
+      io.emit('groupRequest', newRequest);
+    } catch (err) { 
+      console.error(err); 
     }
+  });
+
+  //APPROVE REQUEST
+  socket.on('approveRequest', async({ userId, groupId}) => {
+    if(!userId || !groupId || !db) return
+    try {
+      await db.collection('users').updateOne(
+        { id: String(userId) },
+        { $addToSet: { groups: Number(groupId) }}
+      );
+      await db.collection('joinRequests').deleteOne({userId: String(userId), groupId: String(groupId) });
+
+      io.to(`group-${groupId}`).emit('RequestApproved', userId);
+      io.emit('requestApproved', userId);
+    } catch (error){
+      console.log(error)
+    }
+  });
+
+  // REJECT REQUEST
+  socket.on('rejectRequest', async ({ userId, groupId }) => {
+    if (!userId || !groupId || !db) return;
+    try {
+      await db.collection('joinRequests').deleteOne({ userId: String(userId), groupId: Number(groupId) });
+      io.to(`group-${groupId}`).emit('requestRejected', userId);
+      io.emit('requestRejected', userId);
+    } catch (err) { console.error(err); }
+  });
+
+    // CREATE CHANNEL
+    socket.on('createChannel', async ({ name, groupId }) => {
+      if (!name || !groupId || !db) return;
+      try {
+        const existingChannels = await db.collection('channels').find({ groupId }).toArray();
+        const nextId = existingChannels.length ? Math.max(...existingChannels.map(c => c.id)) + 1 : groupId * 100 + 1;
+        const newChannel = { id: nextId, name, groupId, members: [], bannedUsers: [] };
+        await saveChannel(newChannel);
+  
+        // Update group's channels array
+        await db.collection('groups').updateOne(
+          { id: groupId },
+          { $addToSet: { channels: nextId } }
+        );
+  
+        io.to(`group-${groupId}`).emit('channelCreated', newChannel);
+      } catch (err) { console.error(err); }
+    });
+
+    // DELETE CHANNEL
+    socket.on('deleteChannel', async ({ channelId, groupId }) => {
+      if (!channelId || !groupId || !db) return;
+      try {
+        await db.collection('channels').deleteOne({ id: channelId });
+        await db.collection('groups').updateOne(
+          { id: groupId },
+          { $pull: { channels: channelId } }
+        );
+        io.to(`group-${groupId}`).emit('channelDeleted', channelId);
+      } catch (err) { console.error(err); }
+    });
+
+
+    // PROMOTE USER
+    socket.on('promoteUser', async ({ userId, role, groupId }) => {
+      if (!userId || !role || !groupId || !db) return;
+      try {
+        await db.collection('users').updateOne(
+          { id: String(userId) },
+          { $addToSet: { role } }
+        );
+        await db.collection('users').updateOne(
+          { id: String(userId) },
+          { $addToSet: { groups: Number(groupId) } }
+        );
+        io.to(`group-${groupId}`).emit('userPromoted', { userId, role, groupId });
+      } catch (err) { console.error(err); }
+    });
+
+    //BAN USER
+    socket.on('banUser', async ({ channelId, userId }) => {
+      if(!channelId || !userId || !db) return;
+      try {
+        const channel = await db.collection('channels').findOne({id: channelId});
+        if(!channel) return;
+        
+        await db.collection('channels').updateOne(
+          {id: channelId},
+          { $addToSet: { bannedUsers: userId }, $pull: { members: userId } }
+        );
+
+        io.to(`channel-${channelId}`).emit('userBanned', userId);
+        io.to(`group-${channel.groupId}`).emit('userBannedFromChannel', { channelId, userId });
+      } catch (error) {
+        console.log(error)
+      }
   });
 });
 
 // -------------------- REST API --------------------
-// Prefix: /api
 
-// LOGIN
-app.post('/api/login', (req, res) => {
-  const { username, password } = req.body;
-  const u = data.users.find(x => x.username === username && x.password === password);
-  if (!u) return res.status(401).json({ error: 'Invalid credentials' });
-  res.json(u);
-});
+  // LOGIN
+  app.post('/api/login', async (req, res) => {
+    if (!db) return res.status(500).json({ error: 'DB not ready' });
+    const { username, password } = req.body;
 
-// REGISTER new user
-app.post('/api/register', (req, res) => {
-  try {
-    console.log('Register request received:', {
-      body: req.body,
-      headers: req.headers,
-      method: req.method,
-      url: req.url
+    const user = await db.collection('users').findOne({
+      username: username.trim(),
+      password: String(password).trim()
     });
-    
-    const { username, email, password } = req.body;
-    
-    if (!username || !email || !password) {
-      console.log('Missing fields:', { username: !!username, email: !!email, password: !!password });
-      return res.status(400).json({ error: 'Username, email, and password are required' });
-    }
-    
-    // Check if user already exists
-    const existingUser = data.users.find(u => u.username === username || u.email === email);
-    if (existingUser) {
-      console.log('User already exists:', { username, email });
-      return res.status(400).json({ error: 'User already exists' });
-    }
-    
-    // Calculate new user ID
-    const newUserId = data.users.length > 0 ? Math.max(...data.users.map(u => Number(u.id))) + 1 : 1;
-    
-    // Create new user with USER role
-    const newUser = {
-      id: String(newUserId),
-      username: username,
-      email: email,
-      password: password,
-      role: ['USER'],
-      groups: []
-    };
-    
-    data.users.push(newUser);
-    
-    // Create join requests for all existing groups
-    if (data.groups && data.groups.length > 0) {
-      data.groups.forEach(group => {
-        const existingRequest = data.joinRequests.find(r => r.userId === String(newUserId) && r.groupId === group.id);
-        if (!existingRequest) {
-          data.joinRequests.push({ userId: String(newUserId), groupId: group.id });
-          console.log(`Creating join request for group: ${group.id} user: ${newUserId}`);
-        }
-      });
-    }
-    
-    saveData();
-    console.log('User registered successfully:', { username, id: newUserId });
-    
-    // Return the created user data (without password)
-    const userResponse = {
-      id: newUser.id,
-      username: newUser.username,
-      email: newUser.email,
-      role: newUser.role,
-      groups: newUser.groups
-    };
-    
-    res.json({ 
-      message: 'User registered successfully', 
-      user: userResponse 
-    });
-  } catch (error) {
-    console.error('Error registering user:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+    console.log('Found user:', user);
 
-// GET users
-app.get('/api/users', (req, res) => res.json(data.users));
-app.get('/api/users/:id', (req, res) => {
-  const u = data.users.find(x => x.id === String(req.params.id));
-  if (!u) return res.status(404).json({ error: 'User not found' });
-  res.json(u);
-});
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    res.json(user);
+  });
 
-// DELETE user (delete account)
-app.delete('/api/users/:id', (req, res) => {
+  // REGISTER 
+  app.post('/api/register', async (req, res) => {
+    if(!db) return res.status(500).json({ error: 'DB not ready' });
+
+    try {
+      const { username, email, password } = req.body;
+      if (!username || !email || !password) return res.status(400).json({ error: 'Missing fields' });
+
+      const exist = await db.collection('users').findOne({ $or: [{ username }, { email }] });
+      if (exist) return res.status(400).json({ error: 'User already exists' });
+
+      const result = await db.collection('users').insertOne({ username, email, password, role: ['USER'], groups: [] });
+      const newUser = result.ops[0] || { ...result, id: result.insertedId };
+      res.json({ message: 'User registered successfully', user: newUser });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+
+});  
+
+
+// GET ALL USERS
+app.get('/api/users', async (req, res) => {
+  if (!db) return res.status(500).json({ error: 'DB not ready' });
+  const users = await db.collection('users').find().toArray();
+  res.json(users);
+})
+
+// GET SINGLE USER
+app.get('/api/users/:id', async (req, res) => {
   const id = String(req.params.id);
-  const idx = data.users.findIndex(u => u.id === id);
-  if (idx === -1) return res.status(404).json({ error: 'User not found' });
-  // remove user
-  data.users.splice(idx, 1);
-  // remove user's join requests
-  data.joinRequests = data.joinRequests.filter(r => r.userId !== id);
-  // remove from channels and groups membership
-  data.channels.forEach(ch => {
-    ch.members = (ch.members || []).filter(m => String(m) !== id);
-    ch.bannedUsers = (ch.bannedUsers || []).filter(b => String(b) !== id);
-  });
-  data.users.forEach(u => {
-    u.groups = (u.groups || []).filter(gid => gid !== undefined); // no action unless needed
-  });
-  saveData();
+  const user = await db.collection('users').findOne({id});
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json(user);
+});
+
+// DELETE USER
+app.delete('/api/users/:id', async (req, res) => {
+  const id = String(req.params.id);
+  await db.collection('users').deleteOne({ id });
+  await db.collection('joinRequests').deleteMany({ userId: id });
+  await db.collection('channels').updateMany({}, { $pull: { members: id, bannedUsers: id } });
   io.emit('userDeleted', id);
   res.json({ ok: true });
 });
 
-// GROUPS
-app.get('/api/groups', (req, res) => res.json(data.groups));
-app.get('/api/groups/:id', (req, res) => {
+// ---------- GROUPS -----------//
+
+// GET GROUPS
+app.get('/api/groups', async (req, res) => {
+  const groups = await db.collection('groups').find().toArray();
+  res.json(groups);
+})
+
+//GET SINGLE GROUP
+app.get('/api/groups/:id', async (req, res) => {
   const id = Number(req.params.id);
-  const g = data.groups.find(x => x.id === id);
-  if (!g) return res.status(404).json({ error: 'Group not found' });
-  res.json(g);
+  const group = await db.collection('groups').findOne({id});
+  if (!group) return res.status(404).json({ error: 'Group not found' });
+  res.json(group);
 });
 
-// Create group
-app.post('/api/groups', (req, res) => {
+// Create GROUP
+app.post('/api/groups', async (req, res) => {
   try {
     const { name, createdBy } = req.body;
-    
-    if (!name || !createdBy) {
-      return res.status(400).json({ error: 'Group name and creator are required' });
+    if (!name || !createdBy) return res.status(400).json({ error: 'Name and creator required' });
+
+    const creator = await db.collection('users').findOne({ username: createdBy });
+    if (!creator) return res.status(400).json({ error: 'Creator not found' });
+
+    const maxGroup = await db.collection('groups').find().sort({ id: -1 }).limit(1).toArray();
+    const newId = maxGroup.length ? maxGroup[0].id + 1 : 1;
+
+    const newGroup = { id: newId, name, createdBy, channels: [] };
+    await db.collection('groups').insertOne(newGroup);
+
+    // Add creator as GROUP_ADMIN
+    await db.collection('users').updateOne({ id: creator.id }, { $addToSet: { groups: newId, role: 'GROUP_ADMIN' } });
+
+    // Add join requests for normal users
+    const normalUsers = await db.collection('users').find({ role: 'USER' }).toArray();
+    for (const user of normalUsers) {
+      await saveJoinRequest({ userId: user.id, groupId: newId });
     }
 
-    console.log('Creating group:', { name, createdBy });
-    
-    // Find the creator user
-    const creator = data.users.find(u => u.username === createdBy);
-    if (!creator) {
-      return res.status(400).json({ error: 'Creator user not found' });
-    }
-
-    // Calculate new group ID - ensure it's sequential
-    let newId = 1;
-    if (data.groups && data.groups.length > 0) {
-      newId = Math.max(...data.groups.map(g => g.id)) + 1;
-    }
-    
-    const newGroup = {
-      id: newId,
-      name: name,
-      createdBy: createdBy,
-      channels: []
-    };
-    
-    data.groups.push(newGroup);
-    
-    // Add creator to the group
-    if (!creator.groups.includes(newId)) {
-      creator.groups.push(newId);
-    }
-    
-    // If creator is not already a GROUP_ADMIN, promote them
-    if (!creator.role.includes('GROUP_ADMIN')) {
-      creator.role.push('GROUP_ADMIN');
-    }
-    
-    console.log('Creator added to group:', { username: creator.username, groupId: newId });
-    
-    // Add ALL SUPER_ADMIN users to the new group automatically
-    const superAdmins = data.users.filter(u => u.role.includes('SUPER_ADMIN'));
-    superAdmins.forEach(superAdmin => {
-      if (!superAdmin.groups.includes(newId)) {
-        superAdmin.groups.push(newId);
-        console.log(`Super admin ${superAdmin.username} added to group ${newId}`);
-        // Emit event for real-time updates
-        io.emit('userAddedToGroup', { userId: superAdmin.id, groupId: newId });
-      }
-    });
-    
-    // Add creator to the group if not already there
-    if (!creator.groups.includes(newId)) {
-      creator.groups.push(newId);
-      console.log(`Creator ${creator.username} added to group ${newId}`);
-      // Emit event for real-time updates
-      io.emit('userAddedToGroup', { userId: creator.id, groupId: newId });
-    }
-    
-    // Create join requests for all normal users (USER role only)
-    const normalUsers = data.users.filter(u => u.role.includes('USER') && !u.role.includes('GROUP_ADMIN') && !u.role.includes('SUPER_ADMIN'));
-    normalUsers.forEach(user => {
-      const existingRequest = data.joinRequests.find(r => r.userId === user.id && r.groupId === newId);
-      if (!existingRequest) {
-        data.joinRequests.push({ userId: user.id, groupId: newId });
-      }
-    });
-    
-    saveData();
-    console.log('Group created successfully:', newGroup);
-    
-    // Emit socket event
     io.emit('groupCreated', newGroup);
-    
     res.json(newGroup);
-  } catch (error) {
-    console.error('Error creating group:', error);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+});
+
+
+// MODIFY GROUP (change name or createdBy)
+app.put('/api/groups/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  const { name, createdBy } = req.body;
+  try {
+    const group = await db.collection('group').findOne( {id} );
+    if(!group) return res.status(404).json({ error: 'Group not found' });
+
+    const update = {}
+    if (name) update.name = name;
+    if (createdBy !== undefined) update.createdBy = createdBy;
+
+    await db.collection('groups').updateOne({ id }, { $set: update });
+    const updatedGroup = { ...group, ...update };
+
+    io.emit('groupModified', updatedGroup);
+    io.to(`group-${id}`).emit('groupModified', updatedGroup);
+    res.json(updatedGroup);
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Modify group (change name or createdBy)
-app.put('/api/groups/:id', (req, res) => {
+// DELETE GROUP
+app.delete('/api/groups/:id', async (req, res) => {
   const id = Number(req.params.id);
-  const g = data.groups.find(x => x.id === id);
-  if (!g) return res.status(404).json({ error: 'Group not found' });
-  const { name, createdBy } = req.body;
-  if (name) g.name = name;
-  if (createdBy !== undefined) g.createdBy = createdBy;
-  saveData();
-  io.emit('groupModified', g);
-  io.to(`group-${id}`).emit('groupModified', g);
-  res.json(g);
-});
-
-// Delete group
-app.delete('/api/groups/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const idx = data.groups.findIndex(g => g.id === id);
-  if (idx === -1) return res.status(404).json({ error: 'Group not found' });
-
-  // remove channels belonging to group
-  data.channels = data.channels.filter(c => c.groupId !== id);
-
-  // remove group from users' groups arrays
-  data.users.forEach(u => {
-    u.groups = (u.groups || []).filter(gid => gid !== id);
-  });
-
-  // remove join requests for this group
-  data.joinRequests = data.joinRequests.filter(r => r.groupId !== id);
-
-  data.groups.splice(idx, 1);
-  saveData();
-
-  io.emit('groupDeleted', id);
-  io.to(`group-${id}`).emit('groupDeleted', id);
-  res.json({ ok: true });
-});
-
-// CHANNELS by group and create channel inside group
-app.get('/api/groups/:id/channels', (req, res) => {
-  const groupId = Number(req.params.id);
-  res.json(data.channels.filter(c => c.groupId === groupId));
-});
-
-app.post('/api/groups/:id/channels', (req, res) => {
   try {
-    const groupId = Number(req.params.id);
-    console.log('Creating channel for group:', groupId, 'Request body:', req.body);
-    
-    const group = data.groups.find(g => g.id === groupId);
-    if (!group) {
-      console.error('Group not found:', groupId);
-      return res.status(404).json({ error: 'Group not found' });
-    }
-    
-    const { name } = req.body;
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: 'Channel name is required' });
-    }
-    
-    // Calculate next ID based on group ID (100-199 for group 1, 200-299 for group 2, etc.)
-    let nextId = groupId * 100 + 1; // Start with group ID * 100 + 1
-    
-    // Find the highest existing channel ID for this group
-    const existingChannels = data.channels.filter(c => c.groupId === groupId);
-    if (existingChannels.length > 0) {
-      const maxId = Math.max(...existingChannels.map(c => c.id));
-      nextId = maxId + 1;
-    }
-    
+    const group = await db.collection('groups').findOne({ id });
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+
+    // Remove channels belonging to group
+    await db.collection('channels').deleteMany({ groupId: id });
+
+    // Remove group from users' groups arrays
+    await db.collection('users').updateMany(
+      { groups: id },
+      { $pull: { groups: id } }
+    );
+
+    // Remove join requests for this group
+    await db.collection('joinRequests').deleteMany({ groupId: id });
+
+    // Delete group
+    await db.collection('groups').deleteOne({ id });
+
+    io.emit('groupDeleted', id);
+    io.to(`group-${id}`).emit('groupDeleted', id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// --------- CHANNELS ----------- //
+
+// Get channels by group
+app.get('/api/groups/:id/channels', async (req, res) => {
+  const groupId = Number(req.params.id);
+  try {
+    const channels = await db.collection('channels').find({ groupId }).toArray();
+    res.json(channels);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// CREATE CHANNEL INSIDE GROUP 
+app.post('/api/groups/:id/channels', async (req, res) => {
+  const groupId = Number(req.params.id);
+  const { name } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Channel name is required' });
+
+  try {
+    const group = await db.collection('groups').findOne({ id: groupId });
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+
+    // Determine next ID
+    const existingChannels = await db.collection('channels').find({ groupId }).toArray();
+    const nextId = existingChannels.length
+      ? Math.max(...existingChannels.map(c => c.id)) + 1
+      : groupId * 100 + 1;
+
     const newChannel = { id: nextId, groupId, name, members: [], bannedUsers: [] };
-    
-    console.log('Creating new channel:', newChannel);
-    
-    // Initialize channels array if it doesn't exist
-    if (!data.channels) {
-      data.channels = [];
-    }
-    
-    data.channels.push(newChannel);
-    group.channels = group.channels || [];
-    group.channels.push(nextId);
-    saveData();
-    
+    await db.collection('channels').insertOne(newChannel);
+
+    // Add channel to group's channels array
+    await db.collection('groups').updateOne({ id: groupId }, { $addToSet: { channels: nextId } });
+
     io.to(`group-${groupId}`).emit('channelCreated', newChannel);
     res.json(newChannel);
-  } catch (error) {
-    console.error('Error creating channel:', error);
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// delete channel
-app.delete('/api/groups/:groupId/channels/:channelId', (req, res) => {
-  const groupId = Number(req.params.groupId);
-  const channelId = Number(req.params.channelId);
-  data.channels = data.channels.filter(c => c.id !== channelId);
-  const group = data.groups.find(g => g.id === groupId);
-  if (group) group.channels = (group.channels || []).filter(id => id !== channelId);
-  saveData();
-  io.to(`group-${groupId}`).emit('channelDeleted', channelId);
-  res.json({ ok: true });
-});
+  // DELETE CHANNEL
+  app.delete('/api/groups/:groupId/channels/:channelId', async(req, res) => {
+    const groupId = Number(req.params.groupId);
+    const channelId = Number(req.params.channelId);
+    try {
+      await db.collection('channels').deleteOne({channelId});
+      await db.collection('groups').updateOne({groupId}, {$pull: {channels: channelId}});
 
-// JOIN-REQUESTS (REST)
-app.get('/api/join-requests', (req, res) => {
-  try {
-    console.log('Getting all join requests');
-    
-    // Initialize joinRequests if it doesn't exist
-    if (!data.joinRequests) {
-      data.joinRequests = [];
+      io.to(`group-${groupId}`).emit('channelDeleted', channelId);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
     }
-    
-    res.json(data.joinRequests);
-  } catch (error) {
-    console.error('Error getting all join requests:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  });
 
-app.get('/api/groups/:id/join-requests', (req, res) => {
-  try {
+// -------------------- JOIN REQUESTS -------------------- //
+
+  //GET JOIN REQUESTS
+  app.get('/api/join-requests', async (req, res) => {
+    try {
+      const requests = await db.collection('joinRequests').find().toArray();
+      res.json(requests);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+  
+  //GET JOIN REQUESTS BY GROUP
+  app.get('/api/groups/:id/join-requests', async (req, res) => {
     const groupId = Number(req.params.id);
-    console.log('Getting join requests for group:', groupId);
-    
-    // Initialize joinRequests if it doesn't exist
-    if (!data.joinRequests) {
-      data.joinRequests = [];
+    try {
+      const requests = await db.collection('joinRequests').find({ groupId }).toArray();
+      res.json(requests);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
     }
-    
-    const requests = data.joinRequests.filter(r => r.groupId === groupId);
-    console.log('Found join requests:', requests);
-    res.json(requests);
-  } catch (error) {
-    console.error('Error getting join requests:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  });
 
-app.post('/api/groups/:id/join-requests', (req, res) => {
-  try {
+  // CREATE JOIN REQUESTS
+  app.post('/api/groups/:id/join-requests', async (req, res) => {
     const groupId = Number(req.params.id);
-    const { userId } = req.body || {};
-    
-    console.log('Creating join request for group:', groupId, 'user:', userId);
-    
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required in request body' });
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID is required' });
+  
+    try {
+      const user = await db.collection('users').findOne({ id: String(userId) });
+      if (!user) return res.status(400).json({ error: 'User not found' });
+  
+      const group = await db.collection('groups').findOne({ id: groupId });
+      if (!group) return res.status(400).json({ error: 'Group not found' });
+  
+      if (user.role.includes('SUPER_ADMIN') || user.role.includes('GROUP_ADMIN'))
+        return res.status(400).json({ error: 'Admins cannot have pending join requests' });
+  
+      if ((user.groups || []).includes(groupId))
+        return res.status(400).json({ error: 'User is already in the group' });
+  
+      const existing = await db.collection('joinRequests').findOne({ userId: String(userId), groupId });
+      if (existing) return res.status(400).json({ error: 'Join request already exists' });
+  
+      const newRequest = { userId: String(userId), groupId };
+      await db.collection('joinRequests').insertOne(newRequest);
+      res.json(newRequest);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
     }
-    
-    // Check if user exists
-    const user = data.users.find(u => u.id === String(userId));
-    if (!user) {
-      return res.status(400).json({ error: 'User not found' });
-    }
-    
-    // Check if group exists
-    const group = data.groups.find(g => g.id === groupId);
-    if (!group) {
-      return res.status(400).json({ error: 'Group not found' });
-    }
-    
-    // Prevent SUPER_ADMIN and GROUP_ADMIN from having pending requests
-    if (user.role.includes('SUPER_ADMIN') || user.role.includes('GROUP_ADMIN')) {
-      return res.status(400).json({ error: 'Admins cannot have pending join requests' });
-    }
-    
-    // Check if user is already in the group
-    if (user.groups.includes(groupId)) {
-      return res.status(400).json({ error: 'User is already in the group' });
-    }
-    
-    // Initialize joinRequests if it doesn't exist
-    if (!data.joinRequests) {
-      data.joinRequests = [];
-    }
-    
-    // Check if request already exists
-    const existingRequest = data.joinRequests.find(r => r.userId === String(userId) && r.groupId === groupId);
-    if (existingRequest) {
-      return res.status(400).json({ error: 'Join request already exists' });
-    }
-    
-    const newRequest = { userId: String(userId), groupId: groupId };
-    data.joinRequests.push(newRequest);
-    saveData();
-    
-    console.log('Join request created:', newRequest);
-    res.json(newRequest);
-  } catch (error) {
-    console.error('Error creating join request:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  });
 
-app.post('/api/groups/:id/join-requests/:userId/approve', (req, res) => {
+  // APPROVE JOIN REQUESTS
+  app.post('/api/groups/:id/join-requests/:userId/approve', async (req, res) => {
+    const groupId = Number(req.params.id);
+    const userId = String(req.params.userId);
+  
+    try {
+      const request = await db.collection('joinRequests').findOne({ userId, groupId });
+      if (!request) return res.status(404).json({ error: 'Request not found' });
+  
+      await db.collection('users').updateOne({ id: userId }, { $addToSet: { groups: groupId } });
+      await db.collection('joinRequests').deleteOne({ userId, groupId });
+  
+      io.to(`group-${groupId}`).emit('requestApproved', userId);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  //REJECT JOIN REQUESTS
+  app.post('/api/groups/:id/join-requests/:userId/reject', async (req, res) => {
+    const groupId = Number(req.params.id);
+    const userId = String(req.params.userId);
+  
+    try {
+      const request = await db.collection('joinRequests').findOne({ userId, groupId });
+      if (!request) return res.status(404).json({ error: 'Request not found' });
+  
+      await db.collection('joinRequests').deleteOne({ userId, groupId });
+      io.to(`group-${groupId}`).emit('requestRejected', userId);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+// -------------------- PROMOTE USER -------------------- //
+
+app.post('/api/groups/:id/users/:userId/promote', async (req, res) => {
   const groupId = Number(req.params.id);
   const userId = String(req.params.userId);
-  const idx = data.joinRequests.findIndex(r => r.userId === userId && r.groupId === groupId);
-  if (idx === -1) return res.status(404).json({ error: 'Request not found' });
-  const user = data.users.find(u => u.id === userId);
-  if (user && !user.groups.includes(groupId)) user.groups.push(groupId);
-  data.joinRequests.splice(idx, 1);
-  saveData();
-  io.to(`group-${groupId}`).emit('requestApproved', userId);
-  res.json({ ok: true });
-});
+  const { role } = req.body;
 
-app.post('/api/groups/:id/join-requests/:userId/reject', (req, res) => {
-  const groupId = Number(req.params.id);
-  const userId = String(req.params.userId);
-  const idx = data.joinRequests.findIndex(r => r.userId === userId && r.groupId === groupId);
-  if (idx === -1) return res.status(404).json({ error: 'Request not found' });
-  data.joinRequests.splice(idx, 1);
-  saveData();
-  io.to(`group-${groupId}`).emit('requestRejected', userId);
-  res.json({ ok: true });
-});
+  if (!role || !['GROUP_ADMIN', 'SUPER_ADMIN'].includes(role))
+    return res.status(400).json({ error: 'Valid role required' });
 
-// PROMOTE user via REST
-app.post('/api/groups/:id/users/:userId/promote', (req, res) => {
   try {
-    const groupId = Number(req.params.id);
-    const userId = req.params.userId;
-    const { role } = req.body;
-    
-    console.log('Promoting user:', { groupId, userId, role });
-    
-    if (!role || !['GROUP_ADMIN', 'SUPER_ADMIN'].includes(role)) {
-      return res.status(400).json({ error: 'Valid role (GROUP_ADMIN or SUPER_ADMIN) is required' });
-    }
-    
-    // Find the user
-    const user = data.users.find(u => u.id === userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    // Find the group
-    const group = data.groups.find(g => g.id === groupId);
-    if (!group) {
-      return res.status(404).json({ error: 'Group not found' });
-    }
-    
-    // Add the role if not already present
-    if (!user.role.includes(role)) {
-      user.role.push(role);
-    }
-    
-    // Add user to the group if not already there
-    if (!user.groups.includes(groupId)) {
-      user.groups.push(groupId);
-    }
-    
-    // Remove any pending join requests for this user and group
-    data.joinRequests = data.joinRequests.filter(r => !(r.userId === userId && r.groupId === groupId));
-    
-    saveData();
-    
-    console.log('User promoted successfully:', { userId, role, groupId });
-    
-    // Emit socket event for real-time updates
+    const user = await db.collection('users').findOne({ id: userId });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const group = await db.collection('groups').findOne({ id: groupId });
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+
+    await db.collection('users').updateOne(
+      { id: userId },
+      { $addToSet: { role, groups: groupId } }
+    );
+
+    await db.collection('joinRequests').deleteMany({ userId, groupId });
+
     io.emit('userPromoted', { userId, role, groupId });
-    
-    res.json({ 
-      message: 'User promoted successfully',
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        groups: user.groups
-      }
-    });
-  } catch (error) {
-    console.error('Error promoting user:', error);
+    res.json({ message: 'User promoted successfully' });
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// users of a group
-app.get('/api/groups/:id/users', (req, res) => {
-  const gid = Number(req.params.id);
-  res.json(data.users.filter(u => (u.groups || []).includes(gid)));
+// -------------------- USERS IN GROUP --------------------
+app.get('/api/groups/:id/users', async (req, res) => {
+  const groupId = Number(req.params.id);
+  try {
+    const users = await db.collection('users').find({ groups: groupId }).toArray();
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
-// generic channels endpoint
-app.get('/api/channels', (req, res) => res.json(data.channels));
+// -------------------- CHANNELS & MESSAGES --------------------
 
-// Get messages for a specific channel
-app.get('/api/channels/:channelId/messages', (req, res) => {
+// Get all channels
+app.get('/api/channels', async (req, res) => {
+  try {
+    const channels = await db.collection('channels').find().toArray();
+    res.json(channels);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get a specific channel
+app.get('/api/channels/:channelId', (req, res) => {
+  const channelId = Number(req.params.channelId);
+  const channel = db.collection('channels').findOne( {channelId})
+  if (!channel) return res.status(404).json({ error: 'Channel not found' });
+  res.json(channel);
+});
+
+// Get messages for a channel
+app.get('/api/channels/:channelId/messages', async (req, res) => {
   try {
     const channelId = Number(req.params.channelId);
-    
-    // Check if data.messages exists, if not initialize it
-    if (!data.messages) {
-      data.messages = {};
-    }
-    
-    const messages = data.messages[channelId] || [];
+    const messages = await db.collection('messages').find({ channelId }).toArray();
     res.json(messages);
-  } catch (error) {
-    console.error('Error getting messages for channel:', req.params.channelId, error);
-    res.status(500).json({ error: 'Internal server error' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
+
+// Post a new message
+app.post('/api/channels/:channelId/messages', async (req, res) => {
+  const channelId = Number(req.params.channelId);
+  const { senderId, content } = req.body;
+
+  const message = {
+    channelId,
+    senderId,
+    content,
+    timestamp: new Date()
+  };
+
+  const result = await db.collection('messages').insertOne(message);
+  const savedMessage = result.ops[0];
+
+  // emit via socket.io for real-time
+  io.to(`channel-${channelId}`).emit('newMessage', savedMessage);
+
+  res.json(savedMessage);
+})
 
 // -------------------- Start --------------------
 server.listen(PORT, () => {
