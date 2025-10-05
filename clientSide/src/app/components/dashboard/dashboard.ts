@@ -35,18 +35,20 @@ export class Dashboard implements OnInit, OnDestroy {
     private router: Router,
     private socketService: SocketService,
     private http: HttpClient,
-    private authService: AuthService
+    public authService: AuthService
   ) {
 
   }
 
   ngOnInit(): void {
+    this.userService.getAllUsers().subscribe();
     this.connectSocket();
-    this.pendingRequests = this.userService.pendingRequests;
 
-    // Subscribe to group changes
+    const currentUser = this.userService.getCurrentUser();
+    this.pendingRequests = this.userService.pendingRequests.filter(r => r.userId === currentUser?.id);
+
     const groupSub = this.groupService.getAllGroups().subscribe(groups => {
-      const currentUser = this.authService.getCurrentUser(); // always fresh
+      const currentUser = this.authService.getCurrentUser();
       this.recomputeLists(groups, currentUser);
     });
     this.subs.push(groupSub);
@@ -87,29 +89,30 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   private recomputeLists(groups: Group[], currentUser: User | null) {
-      if (!currentUser) {
-        this.userGroups = [];
-        this.otherGroups = groups;
-        return;
-      }
+    if (!currentUser) {
+      this.userGroups = [];
+      this.otherGroups = groups;
+      return;
+    }
 
-      // SUPER_ADMIN: access to all groups, "other" section empty
-      if (currentUser.role.includes('SUPER_ADMIN')) {
-        this.userGroups = groups;
-        this.otherGroups = [];
-        return;
-      }
+    if (currentUser.role.includes('SUPER_ADMIN')) {
+      // SuperAdmin sees all groups as "userGroups"
+      this.userGroups = groups;
+      this.otherGroups = [];
+      return;
+    }
 
-      // GROUP_ADMIN: show only groups they manage in "My Groups"
-      if (currentUser.role.includes('GROUP_ADMIN')) {
-        this.userGroups = groups.filter(g => currentUser.groups.includes(g.id));
-        this.otherGroups = groups.filter(g => !currentUser.groups.includes(g.id));
-        return;
-      }
-
-      // Regular user
+    if (currentUser.role.includes('GROUP_ADMIN')) {
+      // GROUP_ADMIN sees only groups they belong to
       this.userGroups = groups.filter(g => currentUser.groups.includes(g.id));
+      // otherGroups are groups they do NOT belong to
       this.otherGroups = groups.filter(g => !currentUser.groups.includes(g.id));
+      return;
+    }
+
+    // Regular user
+    this.userGroups = groups.filter(g => currentUser.groups.includes(g.id));
+    this.otherGroups = groups.filter(g => !currentUser.groups.includes(g.id));
   }
 
   // ---------- Actions ---------- //
@@ -118,19 +121,41 @@ export class Dashboard implements OnInit, OnDestroy {
     const user = this.userService.getCurrentUser();
     if (!user) return alert('Login first');
   
-    this.http.post(`${this.API_URL}/groups/${groupId}/join-requests`, { userId: user.id, groupId: groupId })
-      .subscribe({
-        next: () => {
-          this.pendingRequests.push({ userId: user.id, groupId });
-          this.socketService.emit('requestJoinGroup', { userId: user.id, groupId });
-          alert("Request sent")
-        },
-        error: (err) => {
-          console.error('Join request failed:', err);
+    interface JoinRequest {
+      userId: string;
+      groupId: number;
+    }
+  
+    // Step 1: Check backend if a join request already exists
+    this.http.get<JoinRequest[]>(`${this.API_URL}/groups/${groupId}/join-requests`).subscribe({
+      next: (requests) => {
+        const alreadyRequested = requests.some(r => r.userId === user.id);
+        if (alreadyRequested) {
           alert('You already sent request. Please wait for a moment');
+          return;
         }
-      });
+  
+        // Step 2: Send the join request
+        this.http.post<JoinRequest>(`${this.API_URL}/groups/${groupId}/join-requests`, { userId: user.id, groupId })
+          .subscribe({
+            next: (newRequest) => {
+              this.pendingRequests.push({ userId: user.id, groupId });
+              this.socketService.emit('requestJoinGroup', { userId: user.id, groupId });
+              alert("Request sent");
+            },
+            error: (err) => {
+              console.error('Join request failed:', err);
+              alert('Failed to send join request. Please try again.');
+            }
+          });
+      },
+      error: (err) => {
+        console.error('Failed to check existing requests:', err);
+        alert('Cannot check join requests. Please try again.');
+      }
+    });
   }
+  
 
   leaveGroup(groupId: number) {
     const user = this.userService.getCurrentUser();
@@ -165,15 +190,18 @@ export class Dashboard implements OnInit, OnDestroy {
   createGroup() {
     const name = this.newGroupName.trim();
     if (!name) return;
-
-    const user = this.userService.getCurrentUser();
-    if (!user) return alert('Login first');
   
-    const newGroup = this.groupService.createGroup(name);
-    if (newGroup) {
-      this.socketService.emit('groupCreated', newGroup); // emit full group including ID
-      this.newGroupName = '';
-    }
+    this.groupService.createGroup(name)?.subscribe({
+      next: (createdGroup) => {
+        this.socketService.emit('groupCreated', createdGroup); // emit full group including ID
+        this.newGroupName = '';
+        alert('Group created successfully!');
+      },
+      error: (err) => {
+        console.error('Failed to create group:', err);
+        alert('Failed to create group. Please try again.');
+      }
+    });
   }
 
   getImageFile(group: Group): string {
@@ -200,16 +228,23 @@ export class Dashboard implements OnInit, OnDestroy {
 
   // Delete group action
   onDeleteGroup(groupId: number) {
-    const success = this.groupService.deleteGroup(groupId);
+    const request$ = this.groupService.deleteGroup(groupId);
 
-    if (success) {
-      this.socketService.emit('groupDeleted', groupId);
+    if (request$) {
+      request$.subscribe({
+        next: () => {
+          this.socketService.emit('groupDeleted', groupId);
 
-      const currentUser = this.userService.getCurrentUser();
-      this.groupService.getAllGroups().subscribe(groups => {
-        this.recomputeLists(groups, currentUser);
-
-      }); 
+          const currentUser = this.userService.getCurrentUser();
+          this.groupService.getAllGroups().subscribe(groups => {
+            this.recomputeLists(groups, currentUser);
+          });
+        },
+        error: err => {
+          console.error('Failed to delete group:', err);
+          alert('Failed to delete group');
+        }
+      });
     } else {
       alert('Cannot delete this group (permission denied).');
     }
@@ -220,13 +255,22 @@ export class Dashboard implements OnInit, OnDestroy {
     const newName = prompt('Enter new group name:');
     if (!newName) return;
 
-    const success = this.groupService.modifyGroup(groupId, newName);
-    if (success) {
-      this.socketService.emit('groupModified', this.groupService.getGroups().find(g => g.id === groupId));
+    const request$ = this.groupService.modifyGroup(groupId, newName);
 
-      const currentUser = this.userService.getCurrentUser();
-      this.groupService.getAllGroups().subscribe(groups => {
-        this.recomputeLists(groups, currentUser);
+    if (request$) {
+      request$.subscribe({
+        next: updatedGroup => {
+          this.socketService.emit('groupModified', updatedGroup);
+
+          const currentUser = this.userService.getCurrentUser();
+          this.groupService.getAllGroups().subscribe(groups => {
+            this.recomputeLists(groups, currentUser);
+          });
+        },
+        error: err => {
+          console.error('Failed to modify group:', err);
+          alert('Failed to modify group');
+        }
       });
     } else {
       alert('Cannot modify this group (permission denied).');

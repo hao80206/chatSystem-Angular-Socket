@@ -1,182 +1,175 @@
 import { Injectable } from '@angular/core';
-import { User } from '../models/user.model';
+import { BehaviorSubject, Observable } from 'rxjs';
 import { Channel } from '../models/channel.model';
+import { User } from '../models/user.model';
 import { UserService } from './user.service';
+import { SocketService } from './socket.service';
 import { HttpClient } from '@angular/common/http';
-
+import { tap } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ChannelService {
-  private readonly API = 'http://localhost:3000';
+  private readonly API_URL = 'http://localhost:3000/api';
+  private channels: Channel[] = [];
+  private channels$ = new BehaviorSubject<Channel[]>([]);
 
-  private channels: Channel[] = [
-    { id: 101, groupId: 1, name: 'General', members: [], bannedUsers: [] },
-    { id: 102, groupId: 1, name: 'News', members: [], bannedUsers: [] },
-    { id: 103, groupId: 1, name: 'Trip', members: [], bannedUsers: [] },
-    { id: 104, groupId: 1, name: 'Beauty', members: [], bannedUsers: [] },
-    { id: 105, groupId: 1, name: 'Comedy', members: [], bannedUsers: [] },
-    { id: 106, groupId: 1, name: 'Cooking', members: [], bannedUsers: [] },
-    { id: 107, groupId: 1, name: 'Exercise', members: [], bannedUsers: [] },
-  
-    { id: 201, groupId: 2, name: 'News', members: [], bannedUsers: [] },
-    { id: 202, groupId: 2, name: 'Games', members: [], bannedUsers: [] },
-    { id: 203, groupId: 2, name: 'Trip', members: [], bannedUsers: [] },
-    { id: 204, groupId: 2, name: 'Beauty', members: [], bannedUsers: [] },
-    { id: 205, groupId: 2, name: 'Comedy', members: [], bannedUsers: [] },
-    { id: 206, groupId: 2, name: 'Cooking', members: [], bannedUsers: [] },
-  
-    { id: 301, groupId: 3, name: 'News', members: [], bannedUsers: [] },
-    { id: 302, groupId: 3, name: 'General', members: [], bannedUsers: [] },
-    { id: 303, groupId: 3, name: 'Trip', members: [], bannedUsers: [] },
-    { id: 304, groupId: 3, name: 'Beauty', members: [], bannedUsers: [] },
-    { id: 305, groupId: 3, name: 'Games', members: [], bannedUsers: [] },
-  
-    { id: 401, groupId: 4, name: 'General', members: [], bannedUsers: [] },
-    { id: 402, groupId: 4, name: 'WorldHeritage', members: [], bannedUsers: [] },
-    { id: 403, groupId: 4, name: 'Cosmetics', members: [], bannedUsers: [] },
-    { id: 404, groupId: 4, name: 'Vlog', members: [], bannedUsers: [] },
-    { id: 405, groupId: 4, name: 'Mystery', members: [], bannedUsers: [] },
-  
-    { id: 501, groupId: 5, name: 'News', members: [], bannedUsers: [] },
-    { id: 502, groupId: 5, name: 'Comedy', members: [], bannedUsers: [] },
-    { id: 503, groupId: 5, name: 'Vlog', members: [], bannedUsers: [] },
-    { id: 504, groupId: 5, name: 'Beauty', members: [], bannedUsers: [] },
-    { id: 505, groupId: 5, name: 'Games', members: [], bannedUsers: [] },
-  
-    { id: 601, groupId: 6, name: 'News', members: [], bannedUsers: [] },
-    { id: 602, groupId: 6, name: 'Comedy', members: [], bannedUsers: [] },
-    { id: 603, groupId: 6, name: 'Vlog', members: [], bannedUsers: [] },
-    { id: 604, groupId: 6, name: 'Beauty', members: [], bannedUsers: [] },
-    { id: 605, groupId: 6, name: 'Cooking', members: [], bannedUsers: [] },
-  
-    { id: 701, groupId: 7, name: 'General', members: [], bannedUsers: [] },
-    { id: 702, groupId: 7, name: 'Vlog', members: [], bannedUsers: [] },
-    { id: 703, groupId: 7, name: 'WorldHeritage', members: [], bannedUsers: [] },
-    { id: 704, groupId: 7, name: 'Trip', members: [], bannedUsers: [] },
-    { id: 705, groupId: 7, name: 'Mystery', members: [], bannedUsers: [] },
-  ];
+  constructor(
+    private userService: UserService,
+    private socketService: SocketService,
+    private http: HttpClient
+  ) {}
 
-  constructor(private userService: UserService, private http: HttpClient) { 
-
-    
-    const savedChannels = localStorage.getItem('channels');
-      if (savedChannels) {
-        this.channels = JSON.parse(savedChannels);
+  // ---------------- LOAD CHANNELS FOR A GROUP ----------------
+  loadChannels(groupId: number): void {
+    this.http.get<Channel[]>(`${this.API_URL}/groups/${groupId}/channels`).subscribe({
+      next: (channels) => {
+        this.channels = channels;
+        this.channels$.next([...this.channels]);
+      },
+      error: (err) => {
+        console.error('Failed to load channels:', err);
       }
+    });
   }
 
-  getChannelByGroup(groupId: number) : Channel[] {
+  getAllChannels(): Observable<Channel[]> {
+    return this.channels$.asObservable();
+  }
+
+  getChannelByGroup(groupId: number): Channel[] {
     return this.channels.filter(c => c.groupId === groupId);
+  }
 
-  };
+  getChannelById(channelId: number): Channel | undefined {
+    return this.channels.find(c => c.id === channelId);
+  }
 
-  getChannelById(channelId: number) : Channel | undefined {
-    const id = Number(channelId);
-    return this.channels.find(c => c.id === id);
-  };
+  getChannelsForUser(groupId: number, user: User | null): Channel[] {
+    if (!user) return [];
+  
+    // SuperAdmin sees all channels
+    if (user.role.includes('SUPER_ADMIN')) {
+      return this.channels.filter(c => c.groupId === groupId);
+    }
+  
+    // GroupAdmin or regular user: only channels in groups they belong to
+    if (user.groups.includes(groupId)) {
+      return this.channels.filter(c => c.groupId === groupId);
+    }
+  
+    return [];
+  }
 
+  // ---------------- JOIN CHANNEL ----------------
   joinChannel(user: User, channelId: number): boolean {
     const channel = this.getChannelById(channelId);
     if (!channel) return false;
 
-    // Check if user is in group
     if (!user.groups.includes(channel.groupId)) return false;
-
-    // Check if banned
     if (channel.bannedUsers.includes(user.id)) return false;
 
-    // Add to members if not already
     if (!channel.members.includes(user.id)) {
       channel.members.push(user.id);
-      localStorage.setItem('channels', JSON.stringify(this.channels)); // persist changes
+      this.updateChannelMembers(channel.id, channel.members).subscribe();
     }
 
     return true;
   }
 
+  private updateChannelMembers(channelId: number, members: string[]): Observable<Channel> {
+    return this.http.put<Channel>(`${this.API_URL}/${channelId}/members`, { members }).pipe(
+      tap(updated => {
+        const index = this.channels.findIndex(c => c.id === channelId);
+        if (index !== -1) {
+          this.channels[index] = updated;
+          this.channels$.next([...this.channels]);
+        }
+      })
+    );
+  }
+
+  // ChannelService Helper
+  addLocalChannel(channel: Channel): void {
+    const exists = this.channels.find(c => c.id === channel.id);
+    if (!exists) {
+      this.channels.push(channel);
+      this.channels$.next([...this.channels]);
+    }
+  }
+
+  removeLocalChannel(channelId: number): void {
+    this.channels = this.channels.filter(c => c.id !== channelId);
+    this.channels$.next([...this.channels]);
+  }
+
+  // ---------------- BAN USER ----------------
   banUserFromChannel(channelId: number, targetUserId: string): boolean {
     const currentUser = this.userService.getCurrentUser();
     const channel = this.getChannelById(channelId);
     if (!currentUser || !channel) return false;
-
-   // Only SUPER_ADMIN or GROUP_ADMIN of this group can ban
-      const isAllowed = this.userService.isSuperAdmin(currentUser) ||
+  
+    const isAllowed = this.userService.isSuperAdmin(currentUser) ||
       (this.userService.isGroupAdmin(currentUser) && currentUser.groups.includes(channel.groupId));
-
-      if (!isAllowed) {
+  
+    if (!isAllowed) {
       console.warn("You're not allowed to ban users. Only SUPER_ADMIN or GROUP_ADMIN can ban.");
       return false;
-      }
-
-      const targetUser = this.userService.getUserById(targetUserId);
-      if (!targetUser) {
-        console.warn(`User with ID ${targetUserId} not found.`);
-        return false;
-      }
-    
-      // Add to banned list and remove from channel
-      if (!channel.bannedUsers.includes(targetUserId)) {
-        channel.bannedUsers.push(targetUserId);
-        channel.members = channel.members.filter(id => id !== targetUserId);
-      }
-    
-      console.log(
-        `User ${targetUser.username} (ID: ${targetUser.id}) banned from channel ${channel.name} - Group: ${channel.groupId}`
-      );
-    
-      // Report to all super admins
-      const superAdmins = this.userService
-        .getAllUsers()
-        .filter(u => u.role.includes('SUPER_ADMIN'));
-    
-      superAdmins.forEach(sa =>
-        console.log(`Reported banned user ${targetUser.username} to SUPER_ADMIN ${sa.username}`)
-      );
-    
-      alert(`Reported banned user ${targetUser.username} to SUPER_ADMIN`);
-    
-      return true;
-    
+    }
+  
+    // Emit to server to persist in DB
+    this.socketService.emit('banUser', { channelId, userId: targetUserId });
+  
+    // Optimistic UI update (optional)
+    if (!channel.bannedUsers.includes(targetUserId)) {
+      channel.bannedUsers.push(targetUserId);
+      channel.members = channel.members.filter(id => id !== targetUserId);
+      this.channels$.next([...this.channels]);
+    }
+  
+    return true;
   }
+  
 
-  createChannel(groupId: number, name: string){
-    
+  // ---------------- CREATE CHANNEL ----------------
+  createChannel(groupId: number, name: string): Observable<Channel> | null {
     const currentUser = this.userService.getCurrentUser();
     if (!currentUser) return null;
-  
+
     if (
       !this.userService.isSuperAdmin(currentUser) &&
       !(this.userService.isGroupAdmin(currentUser) && currentUser.groups.includes(groupId))
     ) {
-      console.log("You don't have permission to create new channel");
+      console.warn("You don't have permission to create new channel");
       return null;
     }
-  
-    return this.http.post<Channel>(`${this.API}/api/groups/${groupId}/channels`, { name });
+
+    return this.http.post<Channel>(`${this.API_URL}/groups/${groupId}/channels`, { name }).pipe(
+      tap(newChannel => {
+        this.channels.push(newChannel);
+        this.channels$.next([...this.channels]);
+      })
+    );
   }
 
-  deleteChannel(channelId: number | string): boolean {
+  // ---------------- DELETE CHANNEL ----------------
+  deleteChannel(groupId: number, channelId: number | string): Observable<void> | null {
     const currentUser = this.userService.getCurrentUser();
-    const id = Number(channelId); // convert to number
+    const id = Number(channelId);
     const channel = this.getChannelById(id);
+    if (!currentUser || !channel) return null;
 
-    console.log("deleteChannel called");
-
-    if (!currentUser || !channel) return false;
-  
     if (!this.userService.canManageGroup(currentUser, channel.groupId)) {
-      console.log("You're not allowed to delete this channel");
-      return false;
+      console.warn("You're not allowed to delete this channel");
+      return null;
     }
-  
-    this.channels = this.channels.filter(c => c.id !== id);
-    localStorage.setItem('channels', JSON.stringify(this.channels)); // persist changes
-    console.log("Channel deleted:", channel);
-    return true;
+
+    return this.http.delete<void>(`${this.API_URL}/groups/${groupId}/channels/${channelId}`).pipe(
+      tap(() => {
+        this.channels = this.channels.filter(c => c.id !== id);
+        this.channels$.next([...this.channels]);
+      })
+    );
   }
-
 }
-
-

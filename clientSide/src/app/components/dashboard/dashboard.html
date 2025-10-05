@@ -3,7 +3,7 @@
     <div class="dashboard-container">
         <h3 class = "heading">Welcome, {{ userService.getCurrentUser()?.username }}!  Your Groups are</h3>
         <!-- Show SUPER_ADMIN message -->
-        <div *ngIf="userService.getCurrentUser()?.role?.includes('SUPER_ADMIN')" class="super-admin-msg">
+        <div *ngIf="authService.getCurrentUser()?.role?.includes('SUPER_ADMIN')" class="super-admin-msg">
           You're Super administrator, you can access all groups and channels
         </div>
 

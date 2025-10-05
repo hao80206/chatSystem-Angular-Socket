@@ -10,6 +10,8 @@ import { UserService } from '../../services/user.service';
 import { GroupService } from '../../services/group.service';
 import { SocketService } from '../../services/socket.service';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { map } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-channel-list',
@@ -20,12 +22,14 @@ import { HttpClient, HttpClientModule } from '@angular/common/http';
 })
 export class ChannelList implements OnInit, OnDestroy {
   private readonly API_URL = 'http://localhost:3000/api';
+  private subscriptions: Subscription[] = [];
 
   currentUser: User | null = null;
   groupId!: number;
-  channels: Channel[] = [];
+  channelsInGroup: Channel[] = [];
   usersInGroup: User[] = [];
   pendingRequests: { userId: string, groupId: number }[] = [];
+  usersMap: Record<string, User> = {};
 
   newChannelName = '';
 
@@ -41,7 +45,15 @@ export class ChannelList implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.currentUser = this.userService.getCurrentUser();
-    if (!this.currentUser) return;
+    if (!this.currentUser) {
+      console.error('User not logged in');
+      this.router.navigate(['/login']);
+      return;
+    }
+
+    this.userService.getAllUsers().subscribe(users => {
+      users.forEach(u => this.usersMap[u.id] = u);
+    });
 
     this.groupId = Number(this.route.snapshot.paramMap.get('groupId'));
     if (!this.groupId) {
@@ -49,7 +61,15 @@ export class ChannelList implements OnInit, OnDestroy {
       return;
     }
 
-    this.loadChannels();
+    // Subscribe to channels from service (reactive updates)
+    const sub = this.channelService.getAllChannels().subscribe(allChannels => {
+      this.channelsInGroup = allChannels.filter(c => c.groupId === this.groupId);
+    });
+    this.subscriptions.push(sub);
+
+    // Load initial channels
+    this.channelService.loadChannels(this.groupId);
+
     this.refreshUsers();
     this.loadPendingRequests();
     this.registerSocketListeners();
@@ -60,28 +80,20 @@ export class ChannelList implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.socketService.emit('leaveGroup', { groupId: this.groupId, userId: this.currentUser?.id });
+    this.subscriptions.forEach(s => s.unsubscribe());
   }
 
-  // ----------------- data loaders -----------------
-  private loadChannels() {
-    this.http.get<Channel[]>(`${this.API_URL}/groups/${this.groupId}/channels`)
-      .subscribe({
-        next: (channels) => this.channels = channels || [],
-        error: (err) => {
-          console.error('Failed to load channels', err);
-          this.channels = this.channelService.getChannelByGroup(this.groupId);
-        }
+  // ----------------- users & requests -----------------
+  private refreshUsers(): void {
+    this.userService.getUsersByGroup(this.groupId)
+      .pipe(map(users => users.filter(u => !u.role.includes('SUPER_ADMIN') && !u.role.includes('ADMIN'))))
+      .subscribe(filteredUsers => {
+        this.usersInGroup = filteredUsers;
       });
   }
 
-  private refreshUsers(): void {
-    this.usersInGroup = this.userService
-      .getUsersByGroup(this.groupId)
-      .filter(u => !u.role.includes('SUPER_ADMIN') && !u.role.includes('GROUP_ADMIN'));
-  }
-
-  private loadPendingRequests() {
-    this.http.get<{ userId: string, groupId: number, username: string }[]>(`${this.API_URL}/groups/${this.groupId}/join-requests`)
+  private loadPendingRequests(): void {
+    this.http.get<{ userId: string, groupId: number }[]>(`${this.API_URL}/groups/${this.groupId}/join-requests`)
       .subscribe({
         next: (requests) => this.pendingRequests = Array.isArray(requests) ? requests : [],
         error: (err) => {
@@ -93,38 +105,26 @@ export class ChannelList implements OnInit, OnDestroy {
 
   // ----------------- sockets -----------------
   private registerSocketListeners(): void {
-
-    this.socketService.on('groupCreated', (group) => {
-      console.log('New group received via socket', group);
-      // Add group locally
-      this.groupService.addGroup(group);
-    })
+    this.socketService.on('groupCreated', group => this.groupService.addGroup(group));
 
     this.socketService.on('channelCreated', (channel: Channel) => {
-      if (channel && channel.groupId === this.groupId) {
-        const exists = this.channels.some(c => c.id === channel.id);
-        if (!exists) this.channels = [...this.channels, channel];
-      }
+      if (channel.groupId === this.groupId) this.channelService.addLocalChannel(channel);
     });
 
     this.socketService.on('channelDeleted', (channelId: number) => {
-      this.channels = this.channels.filter(c => c.id !== channelId);
+      this.channelService.removeLocalChannel(channelId);
     });
 
     this.socketService.on('groupRequest', (req: { userId: string, groupId: number }) => {
-      if (req && req.groupId === this.groupId) {
-        const exists = this.pendingRequests.some(r => r.userId === req.userId);
-        if (!exists) this.pendingRequests.push(req);
-        this.pendingRequests = [...this.pendingRequests];
+      if (req.groupId === this.groupId && !this.pendingRequests.some(r => r.userId === req.userId)) {
+        this.pendingRequests.push(req);
       }
     });
 
     this.socketService.on('requestApproved', (data: { userId: string, groupId: number }) => {
-      if (this.currentUser && this.currentUser.id === data.userId) {
-        if (!this.currentUser.groups.includes(data.groupId)) {
-          this.currentUser.groups.push(data.groupId);
-        }
-        this.loadChannels(); // refresh list after approval
+      if (this.currentUser?.id === data.userId && !this.currentUser.groups.includes(data.groupId)) {
+        this.currentUser.groups.push(data.groupId);
+        this.channelService.loadChannels(this.groupId); // refresh channels after approval
       }
     });
 
@@ -155,15 +155,35 @@ export class ChannelList implements OnInit, OnDestroy {
       alert('Cannot remove admin users.');
       return;
     }
-    this.userService.removeUserFromGroup(user, this.groupId, this.currentUser!);
-    this.refreshUsers();
+  
+    this.userService.removeUserFromGroup(user, this.groupId, this.currentUser!)
+      ?.subscribe({
+        next: () => this.refreshUsers(),
+        error: (err) => console.error('Failed to remove user:', err)
+      });
   }
 
   approveRequest(request: { userId: string; groupId: number }) {
     this.http.post(`${this.API_URL}/groups/${request.groupId}/join-requests/${request.userId}/approve`, {})
       .subscribe({
-        next: () => this.pendingRequests = this.pendingRequests.filter(r => r.userId !== request.userId),
-        error: (err) => console.error('Approval failed:', err)
+        next: (res: any) => {
+          // Remove from pending requests locally
+          this.pendingRequests = this.pendingRequests.filter(r => r.userId !== request.userId);
+  
+          // Optionally update current user groups if the request was for the logged-in user
+          if (this.currentUser?.id === request.userId) {
+            if (!this.currentUser.groups.includes(request.groupId)) {
+              this.currentUser.groups.push(request.groupId);
+            }
+          }
+  
+          // Refresh channels in case user just got access
+          this.channelService.loadChannels(request.groupId);
+        },
+        error: (err) => {
+          console.error('Approval failed:', err);
+          alert('Failed to approve join request: ' + (err?.error?.detail || err.message));
+        }
       });
   }
 
@@ -178,9 +198,7 @@ export class ChannelList implements OnInit, OnDestroy {
   promoteUser(user: User, role: 'GROUP_ADMIN' | 'SUPER_ADMIN'): void {
     this.http.post(`${this.API_URL}/groups/${this.groupId}/users/${user.id}/promote`, { role })
       .subscribe({
-        next: () => {
-          // server will emit userPromoted, no need to emit manually
-        },
+        next: () => {},
         error: (err) => {
           console.error('Failed to promote user:', err);
           alert('Failed to promote user');
@@ -189,34 +207,49 @@ export class ChannelList implements OnInit, OnDestroy {
   }
 
   openChannel(channelId: number): void {
-    const channel = this.channels.find(c => c.id === channelId);
+    const channel = this.channelsInGroup.find(c => c.id === channelId);
     if (!channel) return;
     if (!this.currentUser!.groups.includes(channel.groupId)) return;
     if (channel.bannedUsers?.includes(this.currentUser!.id)) return;
     this.router.navigate([`/group/${this.groupId}/channel/${channelId}`]);
   }
 
-  createChannel() {
+  createChannel(): void {
     const name = this.newChannelName.trim();
     if (!name) return;
 
-    this.http.post<Channel>(`${this.API_URL}/groups/${this.groupId}/channels`, { name })
-      .subscribe({
-        next: (channel) => {
-          // server already emits channelCreated to all tabs (including this one)
-          this.newChannelName = '';
-        },
+    const obs = this.channelService.createChannel(this.groupId, name);
+    if (obs) {
+      obs.subscribe({
+        next: () => this.newChannelName = '',
         error: (err) => {
           console.error('Channel creation failed', err);
-          alert('Failed to create channel');
+
+        // Custom message for duplicate channel name
+        if (err?.error?.error === 'Channel name has to be unique') {
+          alert('Channel name has to be unique');
+        } else {
+          alert('Failed to create channel: ' + (err?.error?.detail || err.message));
         }
-      });
+      }})
+    }
   }
 
   deleteChannel(channelId: number): void {
-    this.http.delete(`${this.API_URL}/groups/${this.groupId}/channels/${channelId}`)
-      .subscribe({
+    const obs = this.channelService.deleteChannel(this.groupId, channelId);
+    if (obs) {
+      obs.subscribe({
         error: (err) => console.error('Failed to delete channel', err)
       });
+    }
+  }
+
+  joinChannel(channelId: number): void {
+    if (!this.currentUser) return;
+    this.channelService.joinChannel(this.currentUser, channelId);
+  }
+
+  banUser(channelId: number, userId: string): void {
+    this.channelService.banUserFromChannel(channelId, userId);
   }
 }

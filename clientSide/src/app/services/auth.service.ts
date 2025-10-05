@@ -27,7 +27,7 @@ export class AuthService {
   };
 
   getCurrentUser(): any {
-    const user = localStorage.getItem(this.currentUserKey);
+    const user = localStorage.getItem('currentUser');
     return user ? JSON.parse(user) : null;
   }
 

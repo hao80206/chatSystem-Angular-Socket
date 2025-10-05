@@ -19,7 +19,7 @@
       <div class="user-pending-list" *ngIf="canManageGroup()">
         <h2>Pending User Requests</h2>
         <div *ngFor="let req of pendingRequests">
-          <span>{{ (userService.getUserById(req.userId) || {}).username }}</span>
+          <span>{{ usersMap[req.userId]?.username }}</span>
           <button class="list-btn" (click)="approveRequest(req)">Approve</button>
           <button class="list-btn" (click)="rejectRequest(req)">Reject</button>
         </div>
@@ -41,7 +41,7 @@
 
     <h4 class="mb-4">Channels</h4>
     <div class="channel-grid">
-      <div class="channel-card" *ngFor="let channel of channels">
+      <div class="channel-card" *ngFor="let channel of channelsInGroup">
         <!-- channel image -->
         <img [src]="'assets/Channels/' + channel.name + '.png'" 
              class="channel-image" 

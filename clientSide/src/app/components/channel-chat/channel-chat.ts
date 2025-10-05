@@ -9,6 +9,7 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Navbar } from '../navbar/navbar';
 import { HttpClient } from '@angular/common/http';
+import { map } from 'rxjs/operators';
 
 @Component({
   selector: 'app-channel-chat',
@@ -23,7 +24,7 @@ export class ChannelChat implements OnInit, OnDestroy {
   currentUser: User | null = null;
   channelId: number = 0;
   groupId!: number;
-  messages: { user: string, text: string, timestamp: Date }[] = [];
+  messages: { user: string; text: string; timestamp: Date; senderId: string }[] = [];
   newMessage = '';
   usersInGroup: User[] = [];
 
@@ -54,16 +55,27 @@ export class ChannelChat implements OnInit, OnDestroy {
     this.loadMessages();
 
     // Users in this group (exclude admins)
-    this.usersInGroup = this.userService.getUsersByGroup(this.groupId)
-      .filter(u => !u.role.includes('SUPER_ADMIN') && !u.role.includes('GROUP_ADMIN'));
+    this.userService.getUsersByGroup(this.groupId).pipe(
+      map(users =>
+        users.filter(u => !u.role.includes('SUPER_ADMIN') && !u.role.includes('GROUP_ADMIN'))
+      )
+    ).subscribe(filteredUsers => {
+      this.usersInGroup = filteredUsers; 
+    });
 
     // Join channel room
     this.socketService.emit('joinChannel', { channelId: this.channelId, userId: this.currentUser?.id });
 
-    // Incoming messages
+    // Listen for incoming messages
     this.socketService.on('receiveMessage', (msg: any) => {
-      this.messages.push(msg);
-    });
+      if (msg.channelId === this.channelId) {
+        this.messages.push({
+          user: msg.senderName || 'Unknown',
+          text: msg.content || '',
+          timestamp: new Date(msg.timestamp),
+          senderId: msg.senderId
+        });
+    }});
 
     this.socketService.on('userBannedFromChannel', ({ channelId, userId }) => {
       if (channelId === this.channelId) {
@@ -93,9 +105,10 @@ export class ChannelChat implements OnInit, OnDestroy {
     this.http.get<any[]>(`${this.API}/api/channels/${this.channelId}/messages`).subscribe({
       next: (messages) => {
         this.messages = messages.map(msg => ({
-          user: msg.senderName || msg.user,
-          text: msg.content || msg.text,
-          timestamp: new Date(msg.timestamp)
+          user: msg.senderName || 'Unknown',  // for frontend display
+          text: msg.content || '',            // for frontend display
+          timestamp: new Date(msg.timestamp), // convert to Date
+          senderId: msg.senderId               // optional, keep id for references
         }));
       },
       error: (err) => {
@@ -103,21 +116,25 @@ export class ChannelChat implements OnInit, OnDestroy {
       }
     });
   }
-
+  
   sendMessage() {
-    if (!this.groupId) return;
-    if (!this.newMessage.trim() || !this.currentUser) return;
-
+    if (!this.groupId || !this.newMessage.trim() || !this.currentUser) return;
+  
     const message = {
       channelId: this.channelId,
-      user: this.currentUser.username,
-      text: this.newMessage,
+      senderId: this.currentUser.id,
+      senderName: this.currentUser.username,
+      content: this.newMessage,
       timestamp: new Date()
     };
-
+  
+    // Emit to server via socket
     this.socketService.emit('sendMessage', message);
+  
     this.newMessage = '';
   }
+  
+  
 
   canBan(user: User): boolean {
     if (!this.currentUser) return false;

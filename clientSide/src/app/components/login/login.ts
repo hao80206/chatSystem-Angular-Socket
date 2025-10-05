@@ -34,6 +34,10 @@ export class Login {
     this.authService.login(username, password).subscribe({
       next: (user) => {
         console.log('Logged in as:', user);
+    
+        // Update UserService
+        this.userService.setCurrentUser(user);
+        this.userService.clearPendingRequests();
         this.router.navigate(['/dashboard']);
       },
       error: (err) => {
@@ -67,17 +71,17 @@ export class Login {
           groups: response.user.groups
         };
         
-        // Add user to local service
-        this.userService.createUser(newUser);
-        
-        // Login the user
-        const loginSuccess = this.authService.login(username, password);
-        if (loginSuccess) {
-          alert('Account created successfully! You are now pending admin approval for all groups.');
-          this.router.navigate(['/dashboard']);
-        } else {
-          alert('Account created but login failed. Please try logging in manually.');
-        }
+        this.authService.login(username, password).subscribe({
+          next: (loginResponse) => {
+            alert('Account created successfully!');
+            this.userService.clearPendingRequests();
+            this.router.navigate(['/dashboard']);
+          },
+          error: (err) => {
+            console.error('Auto-login failed:', err);
+            alert('Account created but login failed. Please log in manually.');
+          }
+        });
       },
       error: (error) => {
         console.error('Registration failed:', error);
