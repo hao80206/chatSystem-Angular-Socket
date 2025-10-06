@@ -1,101 +1,204 @@
 .chat-container {
-    display: flex;
-    flex-direction: column;
-    text-align: center;
-    max-width: 700px;
-    margin: 0 auto;
-    gap: 10px;
-  }
-  
-  .message-field {
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    background-color: rgb(192, 244, 244);
-    padding: 10px;
-    height: 400px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  
-  .message {
-    display: flex;
-    justify-content: space-between;
-    font-size: 17px;
-  }
-  
-  .msg-user {
-    font-weight: bold;
-    margin-right: 5px;
-  }
-  
-  .msg-text {
-    flex: 1;
-    padding: 5px;
-    margin: 20px;
-    background-color: white;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-  }
-  
-  .msg-time {
-    font-size: 12px;
-    color: #666;
-    margin: 20px;
-  }
-  
-  .send-message-form {
-    display: flex;
-    gap: 5px;
-    margin: 20px;
-  }
-  
-  .send-message-form input {
-    flex: 1;
-    padding: 6px;
-    height: 30px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-  }
-  
-  .send-message-form button {
-    padding: 6px 12px;
-    border: none;
-    border-radius: 4px;
-    background-color: #007bff;
-    color: white;
-    cursor: pointer;
-  }
-  
-  .send-message-form button:hover {
-    background-color: #0056b3;
-  }
-  
+  max-width: 700px;
+  margin: 20px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
 
-  .admin-actions {
-    background-color: #f3a9b1;
-    border-radius: 8px;
-    padding: 20px;
-    margin: auto;
+/* Online Users Row */
+.chat-users-panel h6 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
 
-  }
-  .admin-actions span {
-    padding: 20px;
-    font-size: 20px;
-  }
+.users-row {
+  display: flex;
+  gap: 15px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
 
-  .admin-actions button {
-    margin: 10px;
-    width: 100px;
-    border-radius: 9px;
-    height: 25px;
-    border: none;
-    transition: 0.2s;
-  }
-  
-  
-  .ban-btn:hover {
-    background-color: #a71d2a;
-  }
-  
+.user {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.user .avatar {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  margin-bottom: 4px;
+}
+
+.user .avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #ccc;
+}
+
+.user .avatar .status {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  border: 2px solid #fff;
+}
+
+.status.online { background-color: #4caf50; }
+.status.offline { background-color: #ed4e6e; }
+.status.busy { background-color: #ffc107; }
+.status.off { background-color: #5a5a5a; }
+
+.user .name {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Chat Messages */
+.message-field {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px;
+  background-color: #e0f7f7;
+  border-radius: 8px;
+  overflow-y: auto;
+  height: 400px;
+  width: 100%;
+}
+
+/* Single Message */
+.message {
+  display: flex;
+  gap: 10px;
+  max-width: 100%;
+  align-items: flex-end;
+}
+
+/* Current User Messages */
+.my-message {
+  flex-direction: row-reverse;
+}
+
+/* Message Bubble */
+.msg-bubble {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  border-radius: 15px;
+  word-wrap: break-word;
+  width: fit-content;
+  max-width: 70%; /* don’t exceed 70% of container */
+}
+
+
+.my-message .msg-bubble {
+  background-color: #7266ba;
+  color: #fff;
+  border-radius: 15px 15px 0 15px;
+}
+
+/* Other Users */
+.other-message .msg-bubble {
+  background-color: #ebebeb;
+  color: #333;
+  border-radius: 15px 15px 15px 0;
+}
+
+/* Text and Time */
+.msg-text {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.msg-time {
+  font-size: 11px;
+  color: black;
+  align-self: flex-end;
+  margin-top: 4px;
+}
+
+/* Avatar + username stacked */
+.avatar-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 12px;
+  text-align: center;
+  min-width: 60px;
+}
+
+.msg-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #ccc;
+  margin-bottom: 4px;
+}
+
+.msg-user {
+  font-weight: bold;
+}
+
+/*---  Send Message Form ---*/
+.send-message-form {
+  display: flex;
+  gap: 10px;
+}
+
+.send-message-form input {
+  flex: 1;
+  border-radius: 20px;
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+}
+
+.send-message-form button {
+  border-radius: 20px;
+  padding: 6px 15px;
+  border: none;
+  background-color: #7266ba;
+  color: #fff;
+  cursor: pointer;
+}
+
+.send-message-form button:hover {
+  background-color: #5a4ea1;
+}
+
+
+/*--- Ban Users --- */
+
+.admin-actions {
+  background-color: #f3a9b1;
+  border-radius: 8px;
+  padding: 20px;
+  margin: auto;
+
+}
+.admin-actions span {
+  padding: 20px;
+  font-size: 20px;
+}
+
+.admin-actions button {
+  margin: 10px;
+  width: 100px;
+  border-radius: 9px;
+  height: 25px;
+  border: none;
+  transition: 0.2s;
+}
+
+
+.ban-btn:hover {
+  background-color: #a71d2a;
+}

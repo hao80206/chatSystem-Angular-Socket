@@ -1,3 +1,4 @@
+const { MongoClient, ObjectId } = require('mongodb');
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
@@ -88,8 +89,8 @@ io.on('connection', (socket) => {
   // JOIN CHANNEL
   socket.on('joinChannel', async ({ channelId, userId }) => {
     if (!channelId || !userId || !db) return;
-    socket.join(`channel_${channelId}`);
-    console.log(`${socket.id} joined channel_${channelId}`);
+    socket.join(`channel-${channelId}`);
+    console.log(`${socket.id} joined channel-${channelId}`);
     try {
       await db.collection('channels').updateOne(
         { id: channelId },
@@ -103,8 +104,8 @@ io.on('connection', (socket) => {
   //LEAVE CHANNEL
   socket.on('leaveChannel', async ({ channelId, userId }) => {
     if (!channelId || !userId || !db) return;
-    socket.leave(`channel_${channelId}`);
-    console.log(`${socket.id} left channel_${channelId}`);
+    socket.leave(`channel-${channelId}`);
+    console.log(`${socket.id} left channel${channelId}`);
     try {
       await db.collection('channels').updateOne(
         { id: channelId },
@@ -117,24 +118,30 @@ io.on('connection', (socket) => {
 
   //SEND MESSAGES
   socket.on('sendMessage', async (message) => {
-    if (!message || !message.channelId || !message.user || !message.text || !db) return;
-    const msg = { ...message, timestamp: message.timestamp || new Date() };
-    try {
-      await db.collection('messages').updateOne(
-        { channelId: message.channelId },
-        { $push: { messages: msg } },
-        { upsert: true }
-      );
-      io.to(`channel_${message.channelId}`).emit('receiveMessage', msg);
-      console.log(`Message sent in channel ${message.channelId}: ${message.user}: ${message.text}`);
-    } catch (err) {
-      console.error(err);
-    }
+    const { channelId, senderId, content, timestamp } = message;
+
+    // ✅ Find user profile to attach image
+    const user = await db.collection('users').findOne({ id: senderId });
+    const profileImg = user?.profileImg || '';
+  
+    const msgToSave = {
+      channelId,
+      senderId,
+      senderName: user?.username || 'Unknown',
+      content,
+      timestamp: new Date(),
+      profileImg 
+    };
+  
+    await db.collection('messages').insertOne(msgToSave);
+  
+    // Broadcast to all users in the channel
+    io.to(`channel-${channelId}`).emit('receiveMessage', msgToSave);
   });
 
   //REQUEST JOIN GROUP
   socket.on('requestJoinGroup', async ({userId, groupId}) => {
-    if (!req || !req.userId || !req.groupId) return;
+    if (!userId || !groupId) return;
     try {
       const user = await db.collection('users').findOne({ id: String(userId) });
       const group = await db.collection('groups').findOne({ id: Number(groupId) });
@@ -266,7 +273,7 @@ io.on('connection', (socket) => {
       username: username.trim(),
       password: String(password).trim()
     });
-    console.log('Found user:', user);
+    //console.log('Found user:', user);
 
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     res.json(user);
@@ -277,15 +284,30 @@ io.on('connection', (socket) => {
     if(!db) return res.status(500).json({ error: 'DB not ready' });
 
     try {
-      const { username, email, password } = req.body;
+      const { username, email, password, profileImg } = req.body;
       if (!username || !email || !password) return res.status(400).json({ error: 'Missing fields' });
 
       const exist = await db.collection('users').findOne({ $or: [{ username }, { email }] });
       if (exist) return res.status(400).json({ error: 'User already exists' });
 
-      const result = await db.collection('users').insertOne({ username, email, password, role: ['USER'], groups: [] });
-      const newUser = result.ops[0] || { ...result, id: result.insertedId };
-      res.json({ message: 'User registered successfully', user: newUser });
+
+      // Assign numeric id: get max id in users collection
+      const lastUser = await db.collection('users').find().sort({ id: -1 }).limit(1).toArray();
+      const nextId = lastUser.length > 0 ? String(Number(lastUser[0].id) + 1) : "1";
+
+      const userToInsert = {
+        id: nextId,       // numeric id
+        username,
+        email,
+        password,
+        role: ['USER'],
+        groups: [],
+        profileImg: profileImg || '/assets/Icons/woman-img-1.png'  
+      };
+
+      await db.collection('users').insertOne(userToInsert);
+
+      res.json({ message: 'User registered successfully', user: userToInsert });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Internal server error' });
@@ -351,7 +373,10 @@ app.post('/api/groups', async (req, res) => {
     await db.collection('groups').insertOne(newGroup);
 
     // Add creator as GROUP_ADMIN
-    await db.collection('users').updateOne({ id: creator.id }, { $addToSet: { groups: newId, role: 'GROUP_ADMIN' } });
+    await db.collection('users').updateOne(
+      { id: creator.id },
+      { $addToSet: { groups: newId, role: "GROUP_ADMIN" }}
+    );
 
     // Add join requests for normal users
     const normalUsers = await db.collection('users').find({ role: 'USER' }).toArray();
@@ -370,7 +395,7 @@ app.put('/api/groups/:id', async (req, res) => {
   const id = Number(req.params.id);
   const { name, createdBy } = req.body;
   try {
-    const group = await db.collection('group').findOne( {id} );
+    const group = await db.collection('groups').findOne( {id} );
     if(!group) return res.status(404).json({ error: 'Group not found' });
 
     const update = {}
@@ -420,6 +445,28 @@ app.delete('/api/groups/:id', async (req, res) => {
   }
 });
 
+// REMOVE USER FROM GROUP
+app.post('/api/groups/:groupId/users/:userId/remove', async (req, res) => {
+  const groupId = Number(req.params.groupId);
+  const userId = req.params.userId;
+
+  try {
+    // Remove group from user's groups array
+    const user = await db.collection('users').findOne({ id: userId });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    await db.collection('users').updateOne(
+      { id: userId },
+      { $pull: { groups: groupId } }
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('❌ Remove user error:', err);
+    res.status(500).json({ error: 'Internal server error', detail: err.message });
+  }
+});
+
 // --------- CHANNELS ----------- //
 
 // Get channels by group
@@ -438,45 +485,75 @@ app.get('/api/groups/:id/channels', async (req, res) => {
 app.post('/api/groups/:id/channels', async (req, res) => {
   const groupId = Number(req.params.id);
   const { name } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'Channel name is required' });
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Channel name is required' });
+  }
 
   try {
     const group = await db.collection('groups').findOne({ id: groupId });
     if (!group) return res.status(404).json({ error: 'Group not found' });
 
-    // Determine next ID
+    // Check if a channel with the same name already exists in this group
+    const existing = await db.collection('channels').findOne({ groupId, name: name.trim() });
+    if (existing) {
+      return res.status(400).json({ error: 'Channel name has to be unique' });
+    }
+
+    // Get max channel id for this group
     const existingChannels = await db.collection('channels').find({ groupId }).toArray();
     const nextId = existingChannels.length
       ? Math.max(...existingChannels.map(c => c.id)) + 1
-      : groupId * 100 + 1;
+      : groupId * 100 + 1; 
 
-    const newChannel = { id: nextId, groupId, name, members: [], bannedUsers: [] };
+    const newChannel = {
+      id: nextId,
+      groupId,
+      name: name.trim(),
+      members: [],
+      bannedUsers: [],
+    };
+
     await db.collection('channels').insertOne(newChannel);
 
-    // Add channel to group's channels array
-    await db.collection('groups').updateOne({ id: groupId }, { $addToSet: { channels: nextId } });
+    // Add channel ID to group's "channels" array
+    await db.collection('groups').updateOne(
+      { id: groupId },
+      { $addToSet: { channels: nextId } }
+    );
 
     io.to(`group-${groupId}`).emit('channelCreated', newChannel);
     res.json(newChannel);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('❌ Create channel error:', err);
+    res.status(500).json({ error: 'Internal server error', detail: err.message });
   }
 });
 
+
   // DELETE CHANNEL
-  app.delete('/api/groups/:groupId/channels/:channelId', async(req, res) => {
+  app.delete('/api/groups/:groupId/channels/:channelId', async (req, res) => {
     const groupId = Number(req.params.groupId);
     const channelId = Number(req.params.channelId);
+  
     try {
-      await db.collection('channels').deleteOne({channelId});
-      await db.collection('groups').updateOne({groupId}, {$pull: {channels: channelId}});
-
+      // Delete the channel document
+      const result = await db.collection('channels').deleteOne({ id: channelId });
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ error: 'Channel not found' });
+      }
+  
+      // Remove channel reference from group's channel list
+      await db.collection('groups').updateOne(
+        { id: groupId },
+        { $pull: { channels: channelId } }
+      );
+  
       io.to(`group-${groupId}`).emit('channelDeleted', channelId);
       res.json({ ok: true });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error('❌ Delete channel error:', err);
+      res.status(500).json({ error: 'Internal server error', detail: err.message });
     }
   });
 
@@ -512,23 +589,18 @@ app.post('/api/groups/:id/channels', async (req, res) => {
     if (!userId) return res.status(400).json({ error: 'User ID is required' });
   
     try {
-      const user = await db.collection('users').findOne({ id: String(userId) });
+      const user = await db.collection('users').findOne({ id: userId });
       if (!user) return res.status(400).json({ error: 'User not found' });
   
       const group = await db.collection('groups').findOne({ id: groupId });
       if (!group) return res.status(400).json({ error: 'Group not found' });
   
-      if (user.role.includes('SUPER_ADMIN') || user.role.includes('GROUP_ADMIN'))
-        return res.status(400).json({ error: 'Admins cannot have pending join requests' });
-  
-      if ((user.groups || []).includes(groupId))
-        return res.status(400).json({ error: 'User is already in the group' });
-  
-      const existing = await db.collection('joinRequests').findOne({ userId: String(userId), groupId });
+      const existing = await db.collection('joinRequests').findOne({ userId, groupId });
       if (existing) return res.status(400).json({ error: 'Join request already exists' });
   
-      const newRequest = { userId: String(userId), groupId };
+      const newRequest = {userId, groupId };
       await db.collection('joinRequests').insertOne(newRequest);
+      console.log('Sent join request to:', groupId)
       res.json(newRequest);
     } catch (err) {
       console.error(err);
@@ -539,20 +611,27 @@ app.post('/api/groups/:id/channels', async (req, res) => {
   // APPROVE JOIN REQUESTS
   app.post('/api/groups/:id/join-requests/:userId/approve', async (req, res) => {
     const groupId = Number(req.params.id);
-    const userId = String(req.params.userId);
-  
+    const userId = String(req.params.userId); // assume stored as string in joinRequests
     try {
       const request = await db.collection('joinRequests').findOne({ userId, groupId });
-      if (!request) return res.status(404).json({ error: 'Request not found' });
+      if (!request) return res.status(404).json({ error: 'Join request not found' });
   
-      await db.collection('users').updateOne({ id: userId }, { $addToSet: { groups: groupId } });
+      // Add group to user's groups array
+      await db.collection('users').updateOne(
+        { id: String(userId) }, 
+        { $addToSet: { groups: groupId } }
+      );
+  
+      // Remove the join request
       await db.collection('joinRequests').deleteOne({ userId, groupId });
   
-      io.to(`group-${groupId}`).emit('requestApproved', userId);
-      res.json({ ok: true });
+      // Emit socket to notify frontend
+      io.to(`group-${groupId}`).emit('requestApproved', { userId, groupId });
+  
+      res.json({ ok: true, userId, groupId });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error('❌ Approve join request error:', err);
+      res.status(500).json({ error: 'Internal server error', detail: err.message });
     }
   });
 
@@ -639,38 +718,66 @@ app.get('/api/channels/:channelId', (req, res) => {
   res.json(channel);
 });
 
-// Get messages for a channel
+// Get mesages for channels
 app.get('/api/channels/:channelId/messages', async (req, res) => {
   try {
     const channelId = Number(req.params.channelId);
     const messages = await db.collection('messages').find({ channelId }).toArray();
-    res.json(messages);
+
+    // Attach profileImg to each message
+    const enriched = await Promise.all(
+      messages.map(async (msg) => {
+        const user = await db.collection('users').findOne({ id: msg.senderId });
+        return {
+          ...msg,
+          profileImg: user?.profileImg || '/assets/Icons/woman-img-1.png',
+          senderName: user?.username || msg.senderName
+        };
+      })
+    );
+
+    res.json(enriched);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
 
-// Post a new message
+// Send new messages
 app.post('/api/channels/:channelId/messages', async (req, res) => {
   const channelId = Number(req.params.channelId);
-  const { senderId, content } = req.body;
+  const { senderId, senderName, content } = req.body;
+
+  if (!senderId || !senderName || !content) {
+    return res.status(400).json({ error: 'Invalid message data' });
+  }
+
+  // Fetch user to attach profileImg
+  const user = await db.collection('users').findOne({ id: senderId });
+  const profileImg = user?.profileImg || '/assets/Icons/woman-img-1.png';
 
   const message = {
     channelId,
     senderId,
+    senderName,
     content,
-    timestamp: new Date()
+    timestamp: new Date(),
+    profileImg  // attach profile image
   };
 
-  const result = await db.collection('messages').insertOne(message);
-  const savedMessage = result.ops[0];
+  try {
+    const result = await db.collection('messages').insertOne(message);
+    const savedMessage = { ...message, _id: result.insertedId };
 
-  // emit via socket.io for real-time
-  io.to(`channel-${channelId}`).emit('newMessage', savedMessage);
+    // emit via socket.io for real-time updates
+    io.to(`channel-${channelId}`).emit('newMessage', savedMessage);
 
-  res.json(savedMessage);
-})
+    res.json(savedMessage);
+  } catch (err) {
+    console.error('Failed to save message:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // -------------------- Start --------------------
 server.listen(PORT, () => {

@@ -28,7 +28,7 @@
     <!-- REGISTER FORM -->
     <div class="login-form">
       <h3 class="text-center">You don't have an account?</h3>
-      <form #registerForm="ngForm" (ngSubmit)="register(registerUsername.value, registerEmail.value, registerPassword.value)">
+      <form #registerForm="ngForm" (ngSubmit)="register(registerUsername.value, registerEmail.value, registerPassword.value, selectedIcon)">
         <div class="form">
           <label>Username: </label>
           <input #registerUsername="ngModel" name="registerUsername" type="text" placeholder="Enter username" required ngModel>
@@ -41,6 +41,20 @@
           <label>Password: </label>
           <input #registerPassword="ngModel" name="registerPassword" type="password" placeholder="Enter password" required ngModel>
         </div>
+
+        <!-- ICON SELECTION SECTION -->
+        <div class="form">
+          <label>Choose your icon:</label>
+          <div class="icon-grid">
+            <img 
+              *ngFor="let icon of icons"
+              [src]="icon"
+              (click)="selectIcon(icon)"
+              [class.selected]="selectedIcon === icon"
+            />
+          </div>
+        </div>
+
         <button type="submit" class="button">Register</button>
       </form>
     </div>

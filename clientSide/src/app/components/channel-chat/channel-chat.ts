@@ -24,7 +24,7 @@ export class ChannelChat implements OnInit, OnDestroy {
   currentUser: User | null = null;
   channelId: number = 0;
   groupId!: number;
-  messages: { user: string; text: string; timestamp: Date; senderId: string }[] = [];
+  messages: { user: string; text: string; timestamp: Date; senderId: string, profileImg: string }[] = [];
   newMessage = '';
   usersInGroup: User[] = [];
 
@@ -73,7 +73,8 @@ export class ChannelChat implements OnInit, OnDestroy {
           user: msg.senderName || 'Unknown',
           text: msg.content || '',
           timestamp: new Date(msg.timestamp),
-          senderId: msg.senderId
+          senderId: msg.senderId,
+          profileImg: msg.profileImg || '/assets/Icons/woman-img-1.png'
         });
     }});
 
@@ -105,10 +106,11 @@ export class ChannelChat implements OnInit, OnDestroy {
     this.http.get<any[]>(`${this.API}/api/channels/${this.channelId}/messages`).subscribe({
       next: (messages) => {
         this.messages = messages.map(msg => ({
-          user: msg.senderName || 'Unknown',  // for frontend display
-          text: msg.content || '',            // for frontend display
-          timestamp: new Date(msg.timestamp), // convert to Date
-          senderId: msg.senderId               // optional, keep id for references
+          user: msg.senderName || 'Unknown',
+          text: msg.content || '',
+          timestamp: new Date(msg.timestamp),
+          senderId: msg.senderId,
+          profileImg: msg.profileImg || '/assets/Icons/woman-img-1.png'
         }));
       },
       error: (err) => {
@@ -125,7 +127,8 @@ export class ChannelChat implements OnInit, OnDestroy {
       senderId: this.currentUser.id,
       senderName: this.currentUser.username,
       content: this.newMessage,
-      timestamp: new Date()
+      timestamp: new Date(),
+      profileImg: this.currentUser.profileImg
     };
   
     // Emit to server via socket
@@ -133,8 +136,6 @@ export class ChannelChat implements OnInit, OnDestroy {
   
     this.newMessage = '';
   }
-  
-  
 
   canBan(user: User): boolean {
     if (!this.currentUser) return false;

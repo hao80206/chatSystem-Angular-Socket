@@ -210,7 +210,11 @@ export class ChannelList implements OnInit, OnDestroy {
     const channel = this.channelsInGroup.find(c => c.id === channelId);
     if (!channel) return;
     if (!this.currentUser!.groups.includes(channel.groupId)) return;
-    if (channel.bannedUsers?.includes(this.currentUser!.id)) return;
+    if (channel.bannedUsers?.includes(this.currentUser!.id)) {
+      console.log("this user is banned and cannot access this channel");
+      alert("You cannot access this channel because you have been banned !");
+      return;
+    }
     this.router.navigate([`/group/${this.groupId}/channel/${channelId}`]);
   }
 

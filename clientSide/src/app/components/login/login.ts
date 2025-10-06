@@ -4,12 +4,13 @@ import { Router } from '@angular/router';
 import { Navbar } from '../navbar/navbar';
 import { UserService } from '../../services/user.service';
 import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
-  imports: [Navbar, FormsModule],
+  imports: [Navbar, FormsModule, CommonModule],
   templateUrl: './login.html',
   styleUrls: ['./login.css'],
   standalone: true,
@@ -17,12 +18,28 @@ import { AuthService } from '../../services/auth.service';
 export class Login {
   private readonly API = 'http://localhost:3000';
 
+  icons: string[] = [
+    '/assets/Icons/woman-img-1.png',
+    '/assets/Icons/woman-img-2.png',
+    '/assets/Icons/woman-img-3.png',
+    '/assets/Icons/woman-img-4.png',
+    '/assets/Icons/man-img-1.png',
+    '/assets/Icons/man-img-2.png',
+    '/assets/Icons/man-img-3.png',
+  ];
+
+  selectedIcon: string = this.icons[0]; // default
+
   constructor(
     private router: Router, 
     private userService: UserService,
     private http: HttpClient,
     private authService: AuthService
   ) { }
+
+  selectIcon(icon: string) {
+    this.selectedIcon = icon;
+  }
 
   // LOGIN FUNCTION
   login(username: string, password: string) {
@@ -48,8 +65,8 @@ export class Login {
   }
 
   // REGISTER FUNCTION
-  register(username: string, email: string, password: string) {
-    console.log('Register function called with:', { username, email, password });
+  register(username: string, email: string, password: string, icon: string) {
+    console.log('Register function called with:', { username, email, password, icon });
 
     if (!username.trim() || !email.trim() || !password.trim()) {
       alert('All fields are required!');
@@ -57,19 +74,9 @@ export class Login {
     }
 
     // Call the server register API
-    this.http.post(`${this.API}/api/register`, { username, email, password }).subscribe({
+    this.http.post(`${this.API}/api/register`, { username, email, password, profileImg: icon }).subscribe({
       next: (response: any) => {
         console.log('Registration successful:', response);
-        
-        // Create the user in the local user service
-        const newUser: User = {
-          id: response.user.id,
-          username: response.user.username,
-          email: response.user.email,
-          password: password, // Keep password for login
-          role: response.user.role,
-          groups: response.user.groups
-        };
         
         this.authService.login(username, password).subscribe({
           next: (loginResponse) => {

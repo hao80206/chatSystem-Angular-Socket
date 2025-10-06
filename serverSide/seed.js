@@ -22,7 +22,11 @@ async function seed() {
   console.log(`Inserted ${channelResult.insertedCount} channels`);
 
   // Insert messages
-  const messageResult = await db.collection('messages').insertMany(messages);
+  await db.collection('messages').insertMany(messages.map(m => ({
+    ...m,
+    timestamp: m.timestamp instanceof Date ? m.timestamp : new Date(m.timestamp)
+  })));
+  
   console.log(`Inserted ${messageResult.insertedCount} messages`);
 
   process.exit(0);

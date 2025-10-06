@@ -1,33 +1,61 @@
 <app-navbar></app-navbar>
 
 <div class="chat-container">
-    <h2 class="mb-4">You're in Group {{ groupId }}, Channel - {{ channelService.getChannelById(channelId)?.name }}</h2>
 
-    <!-- Messages Display -->
-    <h3>Message Chat</h3>
-    <div class="message-field">
-        <div *ngFor="let msg of messages" class="message">
-            <span class="msg-user">{{ msg.user }}:</span>
-            <span class="msg-text">{{ msg.text }}</span>
-            <span class="msg-time">{{ msg.timestamp | date:'shortTime' }}</span>
+    <!-- Online Users Row -->
+    <div class="chat-users-panel">
+      <h6>Online Users</h6>
+      <div class="users-row">
+        <div *ngFor="let user of usersInGroup" class="user">
+          <div class="avatar">
+            <img [src]="user.profileImg || '/assets/Icons/woman-img-1.png'" alt="{{user.username}}">
+            <!-- <div class="status"
+                 [ngClass]="{
+                   'online': user.status==='online',
+                   'offline': user.status==='offline',
+                   'busy': user.status==='busy',
+                   'off': user.status==='off'
+                 }"></div> -->
           </div>
+          <div class="name">{{ user.username }}</div>
+        </div>
+      </div>
     </div>
+  
+    <!-- Chat Messages Field -->
+    <div class="message-field">
+      <div *ngFor="let msg of messages" class="message" 
+           [ngClass]="{'my-message': msg.senderId === currentUser?.id, 'other-message': msg.senderId !== currentUser?.id}">
+          <!-- Avatar + Name -->
+            <div class="avatar-block">
+                <img class="msg-icon" [src]="msg.profileImg || '/assets/Icons/woman-img-1.png'" alt="{{msg.user}}">
+                <div class="msg-user">{{ msg.user }}</div>
+            </div>
 
-
+            <!-- Message Bubble -->
+            <div class="msg-bubble">
+                <div class="msg-text">{{ msg.text }}</div>
+                <div class="msg-time">{{ msg.timestamp | date:'shortTime' }}</div>
+            </div>
+      </div>
+    </div>
+  
     <!-- Send Message Form -->
-     <h3>Send new message</h3>
     <div class="send-message-form">
-        <input type="text" placeholder="Type your message..." [(ngModel)]="newMessage" name="messageInput" (keyup.enter)="sendMessage()">
-    <button (click)="sendMessage()">Send</button>
+      <input type="text" placeholder="Type a message..." [(ngModel)]="newMessage" (keyup.enter)="sendMessage()">
+      <button (click)="sendMessage()">Send</button>
     </div>
 
-    <!-- Admin: Ban User Section -->
-    <div class="admin-actions" *ngIf="userService.isGroupAdmin(currentUser!)">
+      <!-- Admin: Ban User Section -->
+      <div class="admin-actions" *ngIf="userService.isGroupAdmin(currentUser!)">
         <h3>IMPORTANT: User Control Panel</h3>
         <h4>Group Admin can ban chat users and report to Super Admin</h4>
         <div *ngFor="let user of usersInGroup">
-        <span>{{ user.username }}</span>
-        <button class="ban-btn" *ngIf="canBan(user)" (click)="banUser(user.id)">Ban</button>
+          <span>{{ user.username }}</span>
+          <button class="ban-btn" *ngIf="canBan(user)" (click)="banUser(user.id)">Ban</button>
         </div>
-    </div>
+      </div>
+
 </div>
+
+
