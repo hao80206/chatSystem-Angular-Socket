@@ -4,6 +4,7 @@ const http = require('http');
 const cors = require('cors');
 const { Server } = require('socket.io');
 const bodyParser = require('body-parser');
+const { ExpressPeerServer } = require('peer');
 
 const { connectDB, getDB } = require('../App/app');
 const userService = require('../App/user');
@@ -12,7 +13,9 @@ const channelService = require('../App/channel');
 const { join } = require('path');
 
 const app = express();
-const PORT = 3000
+const PORT = 3000;
+//const PEER_PORT = 4000; // PeerJS server
+
 app.use(cors());
 //app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -20,12 +23,29 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE']
-  }
+    origin: "http://localhost:4200",
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['polling'],  // 👈 prevent invalid WebSocket frame error
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
+
+// PeerJS server
+const peerServer = ExpressPeerServer(server, {
+  debug: true,
+  path: '/'
+});
+
+app.use('/peerjs', peerServer);
+
+// peerServer.listen(PORT, () => {
+//   console.log(`PeerJS server running on http://localhost:${PORT}/peerjs`);
+// });
 
 // -------------------- MongoDB --------------------
 let db;
@@ -111,6 +131,28 @@ io.on('connection', (socket) => {
     } catch (err) {
       console.error(err);
     }
+  });
+
+  // Start Video Chat with PeerJS
+  socket.on('peerIdReady', ({ channelId, userId, peerId }) => {
+    console.log(`Peer ID ready: ${peerId} from user ${userId}`);
+    // broadcast to other users in the same channel
+    socket.to(`channel-${channelId}`).emit('peerIdReady', { userId, peerId });
+  });
+
+  // User joins video
+  socket.on('joinVideo', ({ channelId, userId }) => {
+    console.log(`User ${userId} joined video chat in channel ${channelId}`);
+    
+    // Notify others in the same channel
+    socket.to(`channel-${channelId}`).emit('userJoinedVideo', { userId });
+  });
+
+  // User leaves video
+  socket.on('leaveVideo', ({ channelId, userId }) => {
+    console.log(`User ${userId} left video chat in channel ${channelId}`);
+    
+    socket.to(`channel-${channelId}`).emit('userLeftVideo', { userId });
   });
 
 
@@ -869,4 +911,5 @@ app.post('/api/channels/:channelId/messages', async (req, res) => {
 // -------------------- Start --------------------
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`✅ PeerJS available at http://localhost:${PORT}/peerjs`);
 });

@@ -18,8 +18,9 @@ export class SocketService {
   connect(): Socket {
     if (!this.socket || !this.socket.connected) {
       this.socket = io(this.API_URL, { 
-        transports: ['websocket', 'polling'],
-        autoConnect: true
+        transports: ['polling'],
+        autoConnect: true,
+        withCredentials: true
       });
 
       this.socket.on('connect', () => {

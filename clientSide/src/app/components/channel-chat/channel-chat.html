@@ -6,7 +6,51 @@
     <!-- Online Users Row -->
     <div class="chat-users-panel">
       <h6>Users in this Group (online → 🟢   offline → 🔴)</h6>
-      <button class="leave-channel-button" (click)="leaveChannel()">Back to Channel List</button>
+      <div class="channel-button-container">
+        <button class="leave-channel-button" (click)="leaveChannel()">Back to Channel List</button>
+
+        <div class="video-chat-container">
+          <button 
+            *ngIf="!videoStarted" 
+            (click)="startVideoChat()" 
+            class="leave-channel-button">
+            Start Video Chat
+          </button>
+        
+          <button 
+            *ngIf="videoStarted" 
+            (click)="endVideoChat()" 
+            class="end-video-button">
+            End Video Chat
+          </button>
+        </div>
+        
+          <div *ngIf="videoStarted" class="video-wrapper">
+            <!-- Local Video -->
+            <div class="video-card">
+              <div class="video-header">
+                <img class="avatar-icon" [src]="currentUser?.profileImg || '/assets/Icons/woman-img-1.png'" alt="{{currentUser?.username}}">
+                <span class="username">{{currentUser?.username}}</span>
+              </div>
+              <video #localVideo autoplay muted></video>
+            </div>
+          
+            <!-- Remote Video -->
+            <div class="video-card" *ngFor="let remote of remoteStreams">
+              <div class="video-header">
+                <img class="avatar-icon" [src]="remote.profileImg" alt="{{remote.username}}">
+                <span class="username">{{remote.username}}</span>
+              </div>
+              <video [srcObject]="remote.stream" autoplay></video>
+            </div>
+          
+            <p *ngIf="remoteStreams.length === 0" class="waiting-msg">
+              Waiting for another user to join...
+            </p>
+ 
+        </div>
+      </div>
+
       <div class="users-row">
         <div *ngFor="let user of allUsersInGroup" class="user">
           <div class="avatar">
@@ -72,7 +116,7 @@
         <h4>Group Admin can ban chat users and report to Super Admin</h4>
         <div *ngFor="let user of usersInGroup">
           <span>{{ user.username }}</span>
-          <button class="ban-btn" *ngIf="canBan(user)" (click)="banUser(user.id)">Ban</button>
+          <button class="ban-btn" *ngIf="currentUser && canBan(user)" (click)="banUser(user.id)">Ban</button>
         </div>
       </div>
 

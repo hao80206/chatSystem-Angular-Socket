@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ChannelService } from '../../services/channel.service';
 import { UserService } from '../../services/user.service';
@@ -10,6 +10,7 @@ import { CommonModule } from '@angular/common';
 import { Navbar } from '../navbar/navbar';
 import { HttpClient } from '@angular/common/http';
 import { map } from 'rxjs/operators';
+import Peer from 'peerjs';
 
 @Component({
   selector: 'app-channel-chat',
@@ -29,6 +30,17 @@ export class ChannelChat implements OnInit, OnDestroy {
   allUsersInGroup: User[] = [];
   usersInGroup: User[] = [];
   selectedImage: File | null = null;
+  remoteStreams: { userId: string; username: string; profileImg: string; stream: MediaStream }[] =[];
+
+  @ViewChild('localVideo') localVideo!: ElementRef<HTMLVideoElement>;
+  @ViewChild('remoteVideo') remoteVideo!: ElementRef<HTMLVideoElement>;
+
+  peer!: Peer;
+  localStream!: MediaStream;
+  remoteStream!: MediaStream;
+  videoStarted = false;
+  remoteConnected = false;
+
 
   constructor(
     private route: ActivatedRoute,
@@ -37,13 +49,17 @@ export class ChannelChat implements OnInit, OnDestroy {
     public userService: UserService,
     private socketService: SocketService,
     private http: HttpClient
+    
   ) {}
 
-  ngOnInit(): void {
+   ngOnInit(): void {
     this.currentUser = this.userService.getCurrentUser();
     this.channelId = Number(this.route.snapshot.paramMap.get('channelId'));
     this.userService.setChannelId(this.channelId);
     this.loadChannel();
+
+    this.socketService.connect();
+    
 
     // Get groupId from channel
     this.route.paramMap.subscribe(params => {
@@ -126,6 +142,14 @@ export class ChannelChat implements OnInit, OnDestroy {
         this.router.navigate(['/dashboard']);
       }
     });
+
+    this.socketService.on('userJoinedVideo', ({ userId }) => {
+      console.log(`User ${userId} joined video chat`);
+    });
+    
+    this.socketService.on('userLeftVideo', ({ userId }) => {
+      console.log(`User ${userId} left video chat`);
+    });
   };
 
 
@@ -157,6 +181,70 @@ export class ChannelChat implements OnInit, OnDestroy {
       }
     });
   }
+
+  private initPeer() {
+    this.peer = new Peer({
+      host: 'localhost',
+      port: 3000,
+      path: '/peerjs',
+      secure: false
+    });
+  
+    // When this user opens PeerJS
+this.peer.on('open', (id) => {
+  console.log('My Peer ID:', id);
+  if (this.localStream) {
+    this.socketService.emit('peerIdReady', {
+      channelId: this.channelId,
+      userId: this.currentUser?.id,
+      username: this.currentUser?.username,
+      profileImg: this.currentUser?.profileImg,
+      peerId: id
+    });
+  }
+});
+
+// Incoming call from other peers
+this.peer.on('call', (call) => {
+  if (!this.localStream) return;
+
+  call.answer(this.localStream);
+  
+  call.on('stream', (remoteStream) => {
+    const existing = this.remoteStreams.find(r => r.userId === call.metadata.userId);
+    if (!existing) {
+      this.remoteStreams.push({
+        userId: call.metadata.userId,
+        username: call.metadata.username || 'Unknown',
+        profileImg: call.metadata.profileImg || '/assets/Icons/woman-img-1.png',
+        stream: remoteStream
+      });
+    }
+  });
+});
+
+    // Listen for new peers announcing themselves
+    this.socketService.on('peerIdReady', ({ peerId, userId, username, profileImg }) => {
+      if (userId !== this.currentUser?.id && this.localStream) {
+        const call = this.peer.call(peerId, this.localStream, {
+          metadata: { userId: this.currentUser?.id, username: this.currentUser?.username, profileImg: this.currentUser?.profileImg }
+        });
+
+        call.on('stream', (remoteStream) => {
+          const existing = this.remoteStreams.find(r => r.userId === userId);
+          if (!existing) {
+            this.remoteStreams.push({
+              userId,
+              username,
+              profileImg,
+              stream: remoteStream
+            });
+          }
+        });
+      }
+    });
+  }  
+
   
   sendMessage() {
     if (!this.currentUser) return;
@@ -256,10 +344,26 @@ export class ChannelChat implements OnInit, OnDestroy {
     this.router.navigate([`/group/${this.groupId}/channels`]);
   }
 
-  canBan(user: User): boolean {
-    if (!this.currentUser) return false;
+
+  getRemoteUsername(): string {
+    // Find the first user who is not the current user
+    const remoteUser = this.allUsersInGroup.find(u => u.id !== this.currentUser?.id);
+    return remoteUser?.username || 'Unknown';
+  }
+  
+  getRemoteProfileImg(): string {
+    const remoteUser = this.allUsersInGroup.find(u => u.id !== this.currentUser?.id);
+    return remoteUser?.profileImg || '/assets/Icons/woman-img-1.png';
+  }
+
+
+  canBan(user: User | null | undefined): boolean {
+    if (!this.currentUser) return false;  // current user must exist
+    if (!user || !user.role) return false; // user or role missing
     if (user.id === this.currentUser.id) return false; // can't ban self
-    if (user.role.includes('SUPER_ADMIN') || user.role.includes('GROUP_ADMIN')) return false;
+    if (user.role?.includes('SUPER_ADMIN') || user.role?.includes('GROUP_ADMIN')) return false;
+  
+    // Check if current user is admin
     return this.userService.isSuperAdmin(this.currentUser) || this.userService.isGroupAdmin(this.currentUser);
   }
 
@@ -298,9 +402,105 @@ export class ChannelChat implements OnInit, OnDestroy {
       });
   }
 
+  // ------ VIDEO CHAT --------//
+
+  async startVideoChat() {
+    if (this.videoStarted) return;
+
+    const confirmStart = confirm("Start the video chat?");
+    if (!confirmStart) return;
+
+    this.videoStarted = true;
+
+    // Get local media
+    try {
+      this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      this.localVideo.nativeElement.srcObject = this.localStream;
+      this.localVideo.nativeElement.muted = true;
+      await this.localVideo.nativeElement.play();
+
+      // Emit join video event
+      this.socketService.emit('joinVideo', { channelId: this.channelId, userId: this.currentUser?.id });
+
+      // Emit peerIdReady only AFTER local media is ready
+      if (!this.peer) {
+        this.initPeer();
+      } else {
+        this.socketService.emit('peerIdReady', {
+          channelId: this.channelId,
+          userId: this.currentUser?.id,
+          peerId: this.peer.id
+        });
+      }
+
+    } catch (err) {
+      console.error('Failed to get local media', err);
+      alert('Cannot access camera/mic.');
+      this.videoStarted = false;
+      return;
+    }
+  }
+
+  endVideoChat() {
+    const confirmEnd = confirm("End the video chat?");
+    if (!confirmEnd) return;
+
+    this.videoStarted = false;
+    this.remoteConnected = false;
+
+    // Stop local stream
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(track => track.stop());
+    }
+
+    // Stop remote stream
+    if (this.remoteStream) {
+      this.remoteStream.getTracks().forEach(track => track.stop());
+    }
+
+    if (this.localVideo?.nativeElement) {
+      this.localVideo.nativeElement.srcObject = null;
+    }
+  
+    if (this.remoteVideo?.nativeElement) {
+      this.remoteVideo.nativeElement.srcObject = null;
+    }
+
+    // Emit leave video event
+    this.socketService.emit('leaveVideo', { channelId: this.channelId, userId: this.currentUser?.id });
+  }
+
+  async setRemoteStream(stream: MediaStream) {
+    this.remoteStream = stream;
+
+    if (!this.remoteVideo?.nativeElement) return;
+
+    try {
+      this.remoteVideo.nativeElement.srcObject = stream;
+      await this.remoteVideo.nativeElement.play();
+    } catch (err) {
+      console.warn('Play interrupted, retrying...', err);
+      // Retry once after short delay
+      setTimeout(() => {
+        if (this.remoteVideo?.nativeElement) this.remoteVideo.nativeElement.play().catch(() => {});
+      }, 100);
+    }
+  }
+
   ngOnDestroy(): void {
     if (this.channelId && this.currentUser?.id) {
       this.socketService.emit('leaveChannel', { channelId: this.channelId, userId: this.currentUser.id });
     }
+  
+    this.endVideoChat();
+  
+    // Remove all peer listeners
+    if (this.peer) {
+      this.peer.destroy();
+    }
+  
+    // Remove socket listeners
+    this.socketService.off('peerIdReady');
   }
 }
+
