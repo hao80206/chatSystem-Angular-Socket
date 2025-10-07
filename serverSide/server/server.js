@@ -9,12 +9,15 @@ const { connectDB, getDB } = require('../App/app');
 const userService = require('../App/user');
 const groupService = require('../App/group');
 const channelService = require('../App/channel');
+const { join } = require('path');
 
 const app = express();
 const PORT = 3000
 app.use(cors());
-app.use(express.json());
+//app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -90,54 +93,95 @@ io.on('connection', (socket) => {
   socket.on('joinChannel', async ({ channelId, userId }) => {
     if (!channelId || !userId || !db) return;
     socket.join(`channel-${channelId}`);
+    socket.channelId = channelId;
+    socket.userId = userId;
     console.log(`${socket.id} joined channel-${channelId}`);
+
     try {
       await db.collection('channels').updateOne(
         { id: channelId },
         { $addToSet: { members: userId } }
       );
+
+      // Get full user info
+      const joinedUser = await db.collection('users').findOne({ id: String(userId) });
+
+      // ✅ Notify others in the same channel
+      socket.broadcast.to(`channel-${channelId}`).emit('userJoined', { channelId, user:joinedUser });
     } catch (err) {
       console.error(err);
     }
   });
 
-  //LEAVE CHANNEL
+
+  // LEAVE CHANNEL
   socket.on('leaveChannel', async ({ channelId, userId }) => {
     if (!channelId || !userId || !db) return;
     socket.leave(`channel-${channelId}`);
-    console.log(`${socket.id} left channel${channelId}`);
+    console.log(`${socket.id} left channel-${channelId}`);
+
     try {
       await db.collection('channels').updateOne(
         { id: channelId },
         { $pull: { members: userId } }
       );
+
+      // ✅ Notify others in the same channel
+      socket.broadcast.to(`channel-${channelId}`).emit('userLeft', { channelId, userId });
+
     } catch (err) {
       console.error(err);
     }
   });
 
+  
+  // DISCONNECT
+  socket.on('disconnect', () => {
+    if (socket.channelId && socket.userId) {
+      socket.to(`channel-${socket.channelId}`).emit('userLeft', {
+        channelId: socket.channelId,
+        userId: socket.userId
+      });
+    }
+  });
+
+
   //SEND MESSAGES
   socket.on('sendMessage', async (message) => {
-    const { channelId, senderId, content, timestamp } = message;
+    try{ 
+      const { channelId, senderId, content, type } = message;
 
-    // ✅ Find user profile to attach image
-    const user = await db.collection('users').findOne({ id: senderId });
-    const profileImg = user?.profileImg || '';
-  
-    const msgToSave = {
-      channelId,
-      senderId,
-      senderName: user?.username || 'Unknown',
-      content,
-      timestamp: new Date(),
-      profileImg 
-    };
-  
-    await db.collection('messages').insertOne(msgToSave);
-  
-    // Broadcast to all users in the channel
-    io.to(`channel-${channelId}`).emit('receiveMessage', msgToSave);
-  });
+      //  Find user profile to attach image
+      if (!channelId || !senderId || !content || !type) {
+        console.warn('Invalid message:', message);
+        return;
+      }
+
+      // Get sender info
+      const user = await db.collection('users').findOne({ id: senderId });
+      const profileImg = user?.profileImg || '/assets/Icons/woman-img-1.png';
+
+      const msgToSave = {
+        channelId,
+        senderId,
+        senderName: user?.username || 'Unknown',
+        content,
+        type,                     // "text" or "image"
+        timestamp: new Date(),
+        profileImg
+      };
+
+      // Save to DB
+      await db.collection('messages').insertOne(msgToSave);
+      console.log('📩 Received message on server:', message.type, message.content?.slice(0, 50));
+
+      // Broadcast to others in the same channel
+      io.to(`channel-${channelId}`).emit('receiveMessage', msgToSave);
+
+  } catch (err) {
+    console.error('Error in sendMessage:', err);
+  }
+});
 
   //REQUEST JOIN GROUP
   socket.on('requestJoinGroup', async ({userId, groupId}) => {
@@ -191,6 +235,15 @@ io.on('connection', (socket) => {
       io.to(`group-${groupId}`).emit('requestRejected', userId);
       io.emit('requestRejected', userId);
     } catch (err) { console.error(err); }
+  });
+
+  // ONLINE STATUS
+  socket.on('updateStatus', async ({ userId, status }) => {
+    await db.collection('users').updateOne(
+      { id: Number(userId) },
+      { $set: { status } }
+    );
+    io.emit('statusChanged', { userId, status });
   });
 
     // CREATE CHANNEL
@@ -284,7 +337,7 @@ io.on('connection', (socket) => {
     if(!db) return res.status(500).json({ error: 'DB not ready' });
 
     try {
-      const { username, email, password, profileImg } = req.body;
+      const { username, email, password, profileImg, status } = req.body;
       if (!username || !email || !password) return res.status(400).json({ error: 'Missing fields' });
 
       const exist = await db.collection('users').findOne({ $or: [{ username }, { email }] });
@@ -302,7 +355,8 @@ io.on('connection', (socket) => {
         password,
         role: ['USER'],
         groups: [],
-        profileImg: profileImg || '/assets/Icons/woman-img-1.png'  
+        profileImg: profileImg || '/assets/Icons/woman-img-1.png',
+        status: 'offline'  
       };
 
       await db.collection('users').insertOne(userToInsert);
@@ -530,6 +584,33 @@ app.post('/api/groups/:id/channels', async (req, res) => {
   }
 });
 
+// UPDARE USER STATUS
+app.patch('/api/users/:id/status', async (req, res) => {
+  const userId = req.params.id;
+  const { status } = req.body;
+
+  if (!status) {
+    return res.status(400).json({ error: 'Status is required' });
+  }
+
+  try {
+    const result = await db.collection('users').updateOne(
+      { id: userId },
+      { $set: { status } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ success: true, status });
+  } catch (error) {
+    console.error('Error updating user status:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
 
   // DELETE CHANNEL
   app.delete('/api/groups/:groupId/channels/:channelId', async (req, res) => {
@@ -745,8 +826,13 @@ app.get('/api/channels/:channelId/messages', async (req, res) => {
 
 // Send new messages
 app.post('/api/channels/:channelId/messages', async (req, res) => {
+
+  console.log('POST /api/channels/:channelId/messages - headers content-type:', req.headers['content-type']);
+  console.log('body keys:', Object.keys(req.body));
+  console.log('type:', req.body.type, 'content length:', req.body.content ? req.body.content.length : 0);
+
   const channelId = Number(req.params.channelId);
-  const { senderId, senderName, content } = req.body;
+  const { senderId, senderName, content, type } = req.body;
 
   if (!senderId || !senderName || !content) {
     return res.status(400).json({ error: 'Invalid message data' });
@@ -761,6 +847,7 @@ app.post('/api/channels/:channelId/messages', async (req, res) => {
     senderId,
     senderName,
     content,
+    type,   // "text" or "image"
     timestamp: new Date(),
     profileImg  // attach profile image
   };
@@ -770,7 +857,7 @@ app.post('/api/channels/:channelId/messages', async (req, res) => {
     const savedMessage = { ...message, _id: result.insertedId };
 
     // emit via socket.io for real-time updates
-    io.to(`channel-${channelId}`).emit('newMessage', savedMessage);
+    io.to(`channel-${channelId}`).emit('receiveMessage', savedMessage);
 
     res.json(savedMessage);
   } catch (err) {

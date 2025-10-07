@@ -6,8 +6,9 @@ export class User {
     role: string[];  // ['USER'], ['GROUP_ADMIN'], ['SUPER_ADMIN']
     groups: number[];
     profileImg: string;
+    status: string;
   
-    constructor(id: string, username: string, email: string, password: string, role: string[]=[], groups: number[] = [], profileImg:string) {
+    constructor(id: string, username: string, email: string, password: string, role: string[]=[], groups: number[] = [], profileImg:string, status: string) {
       this.id = id;
       this.username = username;
       this.email = email;
@@ -15,5 +16,6 @@ export class User {
       this.role = role;
       this.groups = groups;
       this.profileImg = profileImg;
+      this.status = status;
     }
   }

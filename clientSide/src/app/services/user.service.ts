@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { User } from '../models/user.model';
 import { Observable, map } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -11,6 +12,9 @@ export class UserService {
   private API_URL = 'http://localhost:3000/api'; 
   currentUser: User | null = null;
   pendingRequests: { userId: string, groupId: number, username: string }[] = [];
+
+  private channelIdSubject = new BehaviorSubject<number | null>(null);
+  currentChannelId$ = this.channelIdSubject.asObservable();
 
   constructor(private http: HttpClient) {
     this.loadFromStorage();
@@ -64,6 +68,14 @@ export class UserService {
     return this.getAllUsers().pipe(
       map(users => users.filter(u => u.groups.includes(groupId)))
     );
+  }
+
+  setChannelId(id: number | null) {
+    this.channelIdSubject.next(id);
+  }
+
+  getChannelId() {
+    return this.channelIdSubject.getValue();
   }
 
 

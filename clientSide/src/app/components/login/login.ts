@@ -65,8 +65,8 @@ export class Login {
   }
 
   // REGISTER FUNCTION
-  register(username: string, email: string, password: string, icon: string) {
-    console.log('Register function called with:', { username, email, password, icon });
+  register(username: string, email: string, password: string, icon: string, status: string ='offine') {
+    console.log('Register function called with:', { username, email, password, icon, status });
 
     if (!username.trim() || !email.trim() || !password.trim()) {
       alert('All fields are required!');
@@ -74,7 +74,7 @@ export class Login {
     }
 
     // Call the server register API
-    this.http.post(`${this.API}/api/register`, { username, email, password, profileImg: icon }).subscribe({
+    this.http.post(`${this.API}/api/register`, { username, email, password, profileImg: icon, status }).subscribe({
       next: (response: any) => {
         console.log('Registration successful:', response);
         

@@ -76,10 +76,11 @@ export class ChannelList implements OnInit, OnDestroy {
 
     // Join socket.io room for this group
     this.socketService.emit('joinGroup', { groupId: this.groupId, userId: this.currentUser.id });
+
+    this.socketService.emit('updateStatus', { userId: this.currentUser.id, status: 'online' });
   }
 
   ngOnDestroy(): void {
-    this.socketService.emit('leaveGroup', { groupId: this.groupId, userId: this.currentUser?.id });
     this.subscriptions.forEach(s => s.unsubscribe());
   }
 
@@ -215,6 +216,9 @@ export class ChannelList implements OnInit, OnDestroy {
       alert("You cannot access this channel because you have been banned !");
       return;
     }
+
+    // Change user status before navigating
+    this.updateUserStatus('online'); // or 'active', depending on your logic
     this.router.navigate([`/group/${this.groupId}/channel/${channelId}`]);
   }
 
@@ -248,12 +252,20 @@ export class ChannelList implements OnInit, OnDestroy {
     }
   }
 
-  joinChannel(channelId: number): void {
-    if (!this.currentUser) return;
-    this.channelService.joinChannel(this.currentUser, channelId);
-  }
 
   banUser(channelId: number, userId: string): void {
     this.channelService.banUserFromChannel(channelId, userId);
+  }
+
+  updateUserStatus(newStatus: string): void {
+    if (!this.currentUser) return;
+  
+    this.currentUser.status = newStatus;
+  
+    // If you want to sync this with the backend:
+    this.http.patch(`${this.API_URL}/users/${this.currentUser.id}/status`, { status: newStatus })
+      .subscribe({
+        error: (err) => console.error('Failed to update status:', err)
+      });
   }
 }

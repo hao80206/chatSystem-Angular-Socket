@@ -24,9 +24,11 @@ export class ChannelChat implements OnInit, OnDestroy {
   currentUser: User | null = null;
   channelId: number = 0;
   groupId!: number;
-  messages: { user: string; text: string; timestamp: Date; senderId: string, profileImg: string }[] = [];
+  messages: { user: string; text: string; timestamp: Date; senderId: string, content: string, type: string, profileImg: string }[] = [];
   newMessage = '';
+  allUsersInGroup: User[] = [];
   usersInGroup: User[] = [];
+  selectedImage: File | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -40,6 +42,7 @@ export class ChannelChat implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.currentUser = this.userService.getCurrentUser();
     this.channelId = Number(this.route.snapshot.paramMap.get('channelId'));
+    this.userService.setChannelId(this.channelId);
     this.loadChannel();
 
     // Get groupId from channel
@@ -54,6 +57,11 @@ export class ChannelChat implements OnInit, OnDestroy {
     // Load existing messages from server
     this.loadMessages();
 
+    // Load all users (for online list)
+    this.userService.getUsersByGroup(this.groupId).subscribe(users => {
+      this.allUsersInGroup = [...users];
+    });
+
     // Users in this group (exclude admins)
     this.userService.getUsersByGroup(this.groupId).pipe(
       map(users =>
@@ -63,15 +71,43 @@ export class ChannelChat implements OnInit, OnDestroy {
       this.usersInGroup = filteredUsers; 
     });
 
+  // Someone joins
+    this.socketService.on('userJoined', ({ channelId, user }) => {
+      if (channelId === this.channelId) {
+        const idx = this.allUsersInGroup.findIndex(u => u.id === user.id);
+        if (idx >= 0) this.allUsersInGroup[idx].status = 'online';
+        else this.allUsersInGroup.push({ ...user, status: 'online' });
+        this.allUsersInGroup = [...this.allUsersInGroup];
+      }
+    });
+
+    // Someone leaves
+    this.socketService.on('userLeft', ({ channelId, userId }) => {
+      if (channelId === this.channelId) {
+        const user = this.allUsersInGroup.find(u => u.id === userId);
+        if (user) user.status = 'offline';
+        this.allUsersInGroup = [...this.allUsersInGroup];
+      }
+    });
+    
     // Join channel room
     this.socketService.emit('joinChannel', { channelId: this.channelId, userId: this.currentUser?.id });
+
+    // Add current user to the list
+    const meInList = this.usersInGroup.find(u => u.id === this.currentUser?.id);
+    if (!meInList && this.currentUser) {
+      this.usersInGroup.push({ ...this.currentUser, status: 'online' });
+      this.usersInGroup = [...this.usersInGroup];
+    }
 
     // Listen for incoming messages
     this.socketService.on('receiveMessage', (msg: any) => {
       if (msg.channelId === this.channelId) {
         this.messages.push({
           user: msg.senderName || 'Unknown',
-          text: msg.content || '',
+          text: msg.type === 'text' ? msg.content : '',
+          content: msg.type === 'image' ? msg.content : '',
+          type: msg.type,
           timestamp: new Date(msg.timestamp),
           senderId: msg.senderId,
           profileImg: msg.profileImg || '/assets/Icons/woman-img-1.png'
@@ -90,7 +126,8 @@ export class ChannelChat implements OnInit, OnDestroy {
         this.router.navigate(['/dashboard']);
       }
     });
-  }
+  };
+
 
   private loadChannel() {
     const channel = this.channelService.getChannelById(this.channelId);
@@ -107,7 +144,9 @@ export class ChannelChat implements OnInit, OnDestroy {
       next: (messages) => {
         this.messages = messages.map(msg => ({
           user: msg.senderName || 'Unknown',
-          text: msg.content || '',
+          text: msg.type === 'text' ? msg.content : '',
+          content: msg.type === 'image' ? msg.content : '',
+          type: msg.type,
           timestamp: new Date(msg.timestamp),
           senderId: msg.senderId,
           profileImg: msg.profileImg || '/assets/Icons/woman-img-1.png'
@@ -120,21 +159,101 @@ export class ChannelChat implements OnInit, OnDestroy {
   }
   
   sendMessage() {
-    if (!this.groupId || !this.newMessage.trim() || !this.currentUser) return;
+    if (!this.currentUser) return;
   
-    const message = {
+    // Prepare base message
+    const baseMessage = {
       channelId: this.channelId,
       senderId: this.currentUser.id,
       senderName: this.currentUser.username,
-      content: this.newMessage,
+      type: '',
+      content: '',
       timestamp: new Date(),
       profileImg: this.currentUser.profileImg
     };
   
-    // Emit to server via socket
-    this.socketService.emit('sendMessage', message);
+    // Text message
+    if (this.newMessage.trim()) {
+      const message = { ...baseMessage, type: 'text', content: this.newMessage };
   
-    this.newMessage = '';
+      // 1. Save to DB
+      this.http.post(`${this.API}/api/channels/${this.channelId}/messages`, message).subscribe({
+        next: () => this.newMessage = '',
+        error: (err) => console.error('Failed to send message:', err)
+      });
+    }
+  
+    // Image message
+    if (this.selectedImage) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const imgBase64 = reader.result as string;
+        const message = { ...baseMessage, type: 'image', content: imgBase64 };
+  
+        console.log('Posting message to server, type=', message.type, 'content length=', (message.content || '').length);
+        this.http.post(`${this.API}/api/channels/${this.channelId}/messages`, message).subscribe({
+          next: () => this.selectedImage = null,
+          error: (err) => console.error('Failed to send image:', err)
+        });
+      };
+      reader.readAsDataURL(this.selectedImage);
+    }
+  }
+
+  onImageSelected(event: any) {
+    const file = event.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      this.selectedImage = file;
+  
+      // Automatically send the image after selecting
+      const reader = new FileReader();
+      reader.onload = () => {
+        const imgBase64 = reader.result as string;
+  
+        // Build message object
+        const message = {
+          channelId: this.channelId,
+          senderId: this.currentUser?.id,
+          senderName: this.currentUser?.username,
+          type: 'image',
+          content: imgBase64,
+          timestamp: new Date(),
+          profileImg: this.currentUser?.profileImg
+        };
+  
+        // Send to server
+        this.http.post(`${this.API}/api/channels/${this.channelId}/messages`, message).subscribe({
+          next: () => this.selectedImage = null,
+          error: (err) => console.error('Failed to send image:', err)
+        });
+      };
+      reader.readAsDataURL(file);
+  
+    } else {
+      alert('Please select a valid image file.');
+      this.selectedImage = null;
+    }
+  }
+  
+
+  leaveChannel(): void {
+    if (!this.currentUser) return;
+  
+    const confirmLeave = confirm("You are about to leave this channel. Are you sure?");
+    if (!confirmLeave) return;
+  
+    // Update status to offline before leaving
+    this.updateUserStatus('offline');
+  
+    // Emit leave event to server
+    this.socketService.emit('leaveChannel', {
+      channelId: this.channelId,
+      userId: this.currentUser.id
+    });
+  
+    // Navigate back to channel list
+    this.userService.setChannelId(null)
+    this.router.navigate([`/group/${this.groupId}/channels`]);
   }
 
   canBan(user: User): boolean {
@@ -166,8 +285,22 @@ export class ChannelChat implements OnInit, OnDestroy {
     console.log(`User ${userId} banned from channel ${this.channelId}`);
   }
 
+  updateUserStatus(newStatus: string): void {
+    if (!this.currentUser) return;
+  
+    this.currentUser.status = newStatus;
+    console.log("Status Updated:", newStatus);
+  
+    // If you want to sync this with the backend:
+    this.http.patch(`${this.API}/api/users/${this.currentUser.id}/status`, { status: newStatus })
+      .subscribe({
+        error: (err) => console.error('Failed to update status:', err)
+      });
+  }
+
   ngOnDestroy(): void {
-    this.socketService.emit('leaveChannel', { channelId: this.channelId, userId: this.currentUser?.id });
-    // Don't disconnect socket as it's shared across components
+    if (this.channelId && this.currentUser?.id) {
+      this.socketService.emit('leaveChannel', { channelId: this.channelId, userId: this.currentUser.id });
+    }
   }
 }
