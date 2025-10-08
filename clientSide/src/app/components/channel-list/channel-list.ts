@@ -218,7 +218,7 @@ export class ChannelList implements OnInit, OnDestroy {
     }
 
     // Change user status before navigating
-    this.updateUserStatus('online'); // or 'active', depending on your logic
+    this.updateUserStatus(); 
     this.router.navigate([`/group/${this.groupId}/channel/${channelId}`]);
   }
 
@@ -257,15 +257,18 @@ export class ChannelList implements OnInit, OnDestroy {
     this.channelService.banUserFromChannel(channelId, userId);
   }
 
-  updateUserStatus(newStatus: string): void {
+  updateUserStatus(): void {
     if (!this.currentUser) return;
   
-    this.currentUser.status = newStatus;
+    this.currentUser.status = 'online';
   
     // If you want to sync this with the backend:
-    this.http.patch(`${this.API_URL}/users/${this.currentUser.id}/status`, { status: newStatus })
-      .subscribe({
-        error: (err) => console.error('Failed to update status:', err)
-      });
+    this.http.post(`${this.API_URL}/users/${this.currentUser.id}/status`, { status: 'online' })
+    .subscribe({
+      next: () => console.log('Status set to online'),
+      error: (err) => console.error('Failed to update status:', err)
+    });
+
+  this.socketService.emit('updateStatus', { userId: this.currentUser.id, status: 'online' });
   }
 }

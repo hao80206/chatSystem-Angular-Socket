@@ -396,7 +396,7 @@ this.peer.on('call', (call) => {
     console.log("Status Updated:", newStatus);
   
     // If you want to sync this with the backend:
-    this.http.patch(`${this.API}/api/users/${this.currentUser.id}/status`, { status: newStatus })
+    this.http.post(`${this.API}/api/users/${this.currentUser.id}/status`, { status: newStatus })
       .subscribe({
         error: (err) => console.error('Failed to update status:', err)
       });
@@ -441,9 +441,7 @@ this.peer.on('call', (call) => {
     }
   }
 
-  endVideoChat() {
-    const confirmEnd = confirm("End the video chat?");
-    if (!confirmEnd) return;
+  private cleanupVideoChat() {
 
     this.videoStarted = false;
     this.remoteConnected = false;
@@ -470,6 +468,12 @@ this.peer.on('call', (call) => {
     this.socketService.emit('leaveVideo', { channelId: this.channelId, userId: this.currentUser?.id });
   }
 
+  endVideoChat() {
+    const confirmEnd = confirm("End the video chat?");
+    if (!confirmEnd) return;
+    this.cleanupVideoChat();
+  }
+
   async setRemoteStream(stream: MediaStream) {
     this.remoteStream = stream;
 
@@ -492,7 +496,7 @@ this.peer.on('call', (call) => {
       this.socketService.emit('leaveChannel', { channelId: this.channelId, userId: this.currentUser.id });
     }
   
-    this.endVideoChat();
+    this.cleanupVideoChat();
   
     // Remove all peer listeners
     if (this.peer) {

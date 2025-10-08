@@ -34,8 +34,17 @@ export class UserService {
   }
 
   logout() {
-    this.currentUser = null;
+    if (this.currentUser) {
+      // 🟡 Update status on server before clearing
+      this.http.post(`${this.API_URL}/users/${this.currentUser.id}/status`, { status: 'offline' })
+        .subscribe({
+          next: () => console.log('User status set to offline'),
+          error: (err) => console.error('Failed to set offline status', err) 
+        });
+    }
+
     localStorage.removeItem('currentUser');
+    this.currentUser = null;
   }
 
   getCurrentUser(): User | null {

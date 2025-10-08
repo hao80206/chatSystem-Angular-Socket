@@ -43,10 +43,6 @@ const peerServer = ExpressPeerServer(server, {
 
 app.use('/peerjs', peerServer);
 
-// peerServer.listen(PORT, () => {
-//   console.log(`PeerJS server running on http://localhost:${PORT}/peerjs`);
-// });
-
 // -------------------- MongoDB --------------------
 let db;
 connectDB()
@@ -627,7 +623,7 @@ app.post('/api/groups/:id/channels', async (req, res) => {
 });
 
 // UPDARE USER STATUS
-app.patch('/api/users/:id/status', async (req, res) => {
+app.post('/api/users/:id/status', async (req, res) => {
   const userId = req.params.id;
   const { status } = req.body;
 
@@ -651,7 +647,6 @@ app.patch('/api/users/:id/status', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 
 
   // DELETE CHANNEL
@@ -913,3 +908,4 @@ server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`✅ PeerJS available at http://localhost:${PORT}/peerjs`);
 });
+
