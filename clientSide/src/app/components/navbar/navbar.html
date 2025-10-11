@@ -1,11 +1,12 @@
-<nav class="navbar navbar-pastel">
-    <div class="container-fluid d-flex align-items-center">
-      <a class="navbar-brand" routerLink="/dashboard">ChatSystem</a>
-      <div class="nav-links d-flex ms-3">
-        <a class="nav-link" routerLink="/login">LogIn</a>
-        <a class="nav-link" (click)="goToDashboard()" >Dashboard</a>
-        <a class="nav-link" (click)="logout()" style="cursor: pointer;">LogOut</a>
-      </div>
-    </div>
-  </nav>
+<section class="et-hero-tabs">
+  <h1>CHATMate</h1>
+  <h3>Enjoy chat and video call with ChatMate</h3>
+  <div class="et-hero-tabs-container">
+    <a class="et-hero-tab" routerLink="/login" style="cursor: pointer;">LogIn</a>
+    <a class="et-hero-tab" (click)="goToDashboard()" style="cursor: pointer;">Dashboard</a>
+    <a class="et-hero-tab" (click)="logout()" style="cursor: pointer;">Logout</a>
+    <span class="et-hero-tab-slider"></span>
+  </div>
+</section>
+
   
