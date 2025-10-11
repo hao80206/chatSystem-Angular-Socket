@@ -6,9 +6,10 @@ import { SocketService } from '../../services/socket.service';
 
 @Component({
   selector: 'app-navbar',
-  imports: [RouterModule],
+  standalone: true,           // add this since it's a standalone component
+  imports: [],
   templateUrl: './navbar.html',
-  styleUrl: './navbar.css'
+  styleUrls: ['./navbar.css']
 })
 export class Navbar {
 

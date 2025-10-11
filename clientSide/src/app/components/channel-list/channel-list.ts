@@ -222,6 +222,18 @@ export class ChannelList implements OnInit, OnDestroy {
     this.router.navigate([`/group/${this.groupId}/channel/${channelId}`]);
   }
 
+  getChannelImage(channel: any): string {
+    // List of allowed images in assets/Channels (optional, or you can hardcode logic)
+    const validImages = ['General', 'News', 'Trip', 'Beauty', 'Comedy', 'Cooking', 'Exercise', 'Games', 'WorldHeritage', 'Cosmetics', 'Vlog', 'Mystery'];
+    
+    const namePart = channel.name?.trim();
+    if (namePart && validImages.includes(namePart)) {
+      return `${namePart}.png`;
+    } else {
+      return 'defaultImg.png'; // fallback image
+    }
+  }
+
   createChannel(): void {
     const name = this.newChannelName.trim();
     if (!name) return;

@@ -27,7 +27,7 @@ export class Dashboard implements OnInit, OnDestroy {
   pendingRequests: { userId: string; groupId: number }[] = [];
   newGroupName = '';
   private subs: Subscription[] = [];
-  private readonly API_URL = 'http://localhost:3000/api';
+  public readonly API_URL = 'http://localhost:3000/api';
 
   constructor(
     public userService: UserService,
@@ -95,14 +95,14 @@ export class Dashboard implements OnInit, OnDestroy {
       return;
     }
 
-    if (currentUser.role.includes('SUPER_ADMIN')) {
+    if (currentUser.role?.includes('SUPER_ADMIN')) {
       // SuperAdmin sees all groups as "userGroups"
       this.userGroups = groups;
       this.otherGroups = [];
       return;
     }
 
-    if (currentUser.role.includes('GROUP_ADMIN')) {
+    if (currentUser.role?.includes('GROUP_ADMIN')) {
       // GROUP_ADMIN sees only groups they belong to
       this.userGroups = groups.filter(g => currentUser.groups.includes(g.id));
       // otherGroups are groups they do NOT belong to

@@ -23,6 +23,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const server = http.createServer(app);
+const typingUsers = {};
 
 const io = new Server(server, {
   cors: {
@@ -126,6 +127,20 @@ io.on('connection', (socket) => {
       socket.broadcast.to(`channel-${channelId}`).emit('userJoined', { channelId, user:joinedUser });
     } catch (err) {
       console.error(err);
+    }
+  });
+
+  // TYPING INDICATOR WITH SIGNAL
+  socket.on('typing', ({ channelId, username }) => {
+    typingUsers[channelId] = typingUsers[channelId] || new Set();
+    typingUsers[channelId].add(username);
+    io.to(`channel-${channelId}`).emit('usersTyping', Array.from(typingUsers[channelId]));
+  });
+  
+  socket.on('stopTyping', ({ channelId, username }) => {
+    if (typingUsers[channelId]) {
+      typingUsers[channelId].delete(username);
+      io.to(`channel-${channelId}`).emit('usersTyping', Array.from(typingUsers[channelId]));
     }
   });
 
@@ -278,7 +293,7 @@ io.on('connection', (socket) => {
   // ONLINE STATUS
   socket.on('updateStatus', async ({ userId, status }) => {
     await db.collection('users').updateOne(
-      { id: Number(userId) },
+      { id: userId },
       { $set: { status } }
     );
     io.emit('statusChanged', { userId, status });
@@ -831,7 +846,7 @@ app.get('/api/channels', async (req, res) => {
 // Get a specific channel
 app.get('/api/channels/:channelId', (req, res) => {
   const channelId = Number(req.params.channelId);
-  const channel = db.collection('channels').findOne( {channelId})
+  const channel = db.collection('channels').findOne( {id: channelId})
   if (!channel) return res.status(404).json({ error: 'Channel not found' });
   res.json(channel);
 });
@@ -909,3 +924,4 @@ server.listen(PORT, () => {
   console.log(`✅ PeerJS available at http://localhost:${PORT}/peerjs`);
 });
 
+module.exports = app;

@@ -68,7 +68,7 @@
   
     <!-- Chat Messages Field -->
     <div class="message-field">
-      <div *ngFor="let msg of messages" 
+      <div *ngFor="let msg of messages" [@messageAnimation] 
           class="message" 
           [ngClass]="{
             'my-message': msg.senderId === currentUser?.id,
@@ -99,12 +99,21 @@
           </div>
         </div>
 
+        <!-- Typing indicator -->
+        <div class="typing-indicator" *ngIf="usersTyping().length > 0">
+          <span>
+            {{ usersTyping().join(', ') }}
+            {{ usersTyping().length === 1 ? 'is typing...' : 'are typing...' }}
+          </span>
+        </div>
+
       </div>
     </div>
   
     <!-- Send Message Form -->
     <div class="send-message-form">
-      <input type="text" placeholder="Type a message..." [(ngModel)]="newMessage" (keyup.enter)="sendMessage()">
+
+      <input type="text" placeholder="Type a message..." [(ngModel)]="newMessage" (input)="onMessageInput($event)" (keyup.enter)="sendMessage()">
       <input type="file" (change)="onImageSelected($event)" accept="image/*" #fileInput hidden />
       <button (click)="sendMessage()">Send</button>
       <button (click)="fileInput.click()">📷</button> <!-- Image button -->

@@ -29,9 +29,49 @@ module.exports = new MessageService();
 
 // Dummy messages for seeding
 module.exports = [
-  { id: 1, channelId: 101, senderId: '1', senderName: 'Alice', content: 'Hello everyone!', timestamp: new Date() },
-  { id: 2, channelId: 101, senderId: '2', senderName: 'Bob', content: 'Hi Alice!', timestamp: new Date() },
-  { id: 3, channelId: 102, senderId: '3', senderName: 'Kevin', content: 'Anyone here?', timestamp: new Date() },
-  { id: 4, channelId: 103, senderId: '4', senderName: 'Taylor', content: 'Good morning!', timestamp: new Date() },
-  { id: 5, channelId: 101, senderId: '5', senderName: 'Stella', content: 'Welcome to the chat!', timestamp: new Date() }
+  { 
+    channelId: 101, 
+    senderId: '1', 
+    senderName: 'Alice', 
+    content: 'Hello everyone!', 
+    type: 'text',
+    timestamp: new Date(),
+    profileImg: '/assets/Icons/woman-img-1.png'
+  },
+  { 
+    channelId: 101, 
+    senderId: '2', 
+    senderName: 'Bob', 
+    content: 'Hi Alice!', 
+    type: 'text',
+    timestamp: new Date(),
+    profileImg: '/assets/Icons/man-img-1.png'
+  },
+  { 
+    channelId: 102, 
+    senderId: '3', 
+    senderName: 'Kevin', 
+    content: 'Anyone here?', 
+    type: 'text',
+    timestamp: new Date(),
+    profileImg: '/assets/Icons/man-img-2.png'
+  },
+  { 
+    channelId: 103, 
+    senderId: '4', 
+    senderName: 'Taylor', 
+    content: 'Good morning!', 
+    type: 'text',
+    timestamp: new Date(),
+    profileImg: '/assets/Icons/woman-img-2.png'
+  },
+  { 
+    channelId: 101, 
+    senderId: '5', 
+    senderName: 'Stella', 
+    content: 'Welcome to the chat!', 
+    type: 'text',
+    timestamp: new Date(),
+    profileImg: '/assets/Icons/woman-img-3.png'
+  }
 ];

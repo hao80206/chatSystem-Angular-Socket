@@ -10,7 +10,7 @@ import { Router } from '@angular/router';
   standalone: true,
   imports: [RouterOutlet, HttpClientModule, CommonModule],
   templateUrl: './app.html',
-  styleUrl: './app.css'
+  styleUrls: ['./app.css']
 })
 export class App {
   private httpService = Inject(HttpClient);

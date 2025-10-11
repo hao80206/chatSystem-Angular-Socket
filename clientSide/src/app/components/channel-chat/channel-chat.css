@@ -157,6 +157,13 @@ h3{
   width: 100%;
 }
 
+.typing-indicator {
+  font-size: 0.85rem;
+  color: #555;
+  padding: 4px 10px;
+  font-style: italic;
+}
+
 /* Single Message */
 .message {
   display: flex;

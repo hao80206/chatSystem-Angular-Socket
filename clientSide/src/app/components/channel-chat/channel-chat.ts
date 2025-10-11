@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ChannelService } from '../../services/channel.service';
 import { UserService } from '../../services/user.service';
@@ -11,14 +11,32 @@ import { Navbar } from '../navbar/navbar';
 import { HttpClient } from '@angular/common/http';
 import { map } from 'rxjs/operators';
 import Peer from 'peerjs';
+import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
 
 @Component({
   selector: 'app-channel-chat',
   imports: [FormsModule, CommonModule, Navbar],
   standalone: true,
   templateUrl: './channel-chat.html',
-  styleUrls: ['./channel-chat.css']
+  styleUrls: ['./channel-chat.css'],
+
+  // FOR CREATIVITY PART
+  animations: [
+    trigger('messageAnimation', [
+      transition('* => *', [
+        query(':enter', [
+          style({ opacity: 0, transform: 'translateY(20px)' }),
+          stagger(50, [
+            animate('200ms ease-out', style({ opacity: 1, transform: 'translateY(0)' }))
+          ])
+        ], { optional: true })
+      ])
+    ])
+  ]
+
 })
+
+
 export class ChannelChat implements OnInit, OnDestroy {
   private readonly API = 'http://localhost:3000';
 
@@ -31,6 +49,10 @@ export class ChannelChat implements OnInit, OnDestroy {
   usersInGroup: User[] = [];
   selectedImage: File | null = null;
   remoteStreams: { userId: string; username: string; profileImg: string; stream: MediaStream }[] =[];
+
+  // signal that tracks who is typing in the channel
+  isTyping = signal(false);
+  usersTyping = signal<string[]>([]);
 
   @ViewChild('localVideo') localVideo!: ElementRef<HTMLVideoElement>;
   @ViewChild('remoteVideo') remoteVideo!: ElementRef<HTMLVideoElement>;
@@ -115,6 +137,19 @@ export class ChannelChat implements OnInit, OnDestroy {
       this.usersInGroup.push({ ...this.currentUser, status: 'online' });
       this.usersInGroup = [...this.usersInGroup];
     }
+
+    this.socketService.on('usersTyping', (users: string[]) => {
+      if (!this.currentUser) return;
+    
+      // Exclude current user
+      const otherUsersTyping = users.filter(u => u !== this.currentUser?.username);
+    
+      this.usersTyping.set([...otherUsersTyping]);
+    });
+    
+    this.socketService.on('stopTyping', ({ username }) => {
+      this.usersTyping.update(users => users.filter(u => u !== username));
+    });
 
     // Listen for incoming messages
     this.socketService.on('receiveMessage', (msg: any) => {
@@ -245,7 +280,30 @@ this.peer.on('call', (call) => {
     });
   }  
 
+  onMessageInput(event: Event) {
+    if (!this.currentUser) return;
   
+    // Local typing state
+    this.isTyping.set(true);
+  
+    // Notify server
+    this.socketService.emit('typing', {
+      channelId: this.channelId,
+      username: this.currentUser.username
+    });
+  
+    // Stop typing after 2 seconds idle
+    clearTimeout((this as any)._typingTimeout);
+    (this as any)._typingTimeout = setTimeout(() => {
+      this.isTyping.set(false);
+      this.socketService.emit('stopTyping', {
+        channelId: this.channelId,
+        username: this.currentUser?.username
+      });
+    }, 2500);
+  }
+  
+
   sendMessage() {
     if (!this.currentUser) return;
   

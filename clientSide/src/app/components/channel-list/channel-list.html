@@ -43,7 +43,7 @@
     <div class="channel-grid">
       <div class="channel-card" *ngFor="let channel of channelsInGroup">
         <!-- channel image -->
-        <img [src]="'assets/Channels/' + channel.name + '.png'" 
+        <img [src]="'assets/Channels/' + getChannelImage(channel)" 
              class="channel-image" 
              alt="{{ channel.name }}">
   
