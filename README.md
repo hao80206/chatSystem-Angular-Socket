@@ -5,8 +5,9 @@
   2. Data Structures
   3. REST API
   4. Angular Architecture
+  5. Testing
 
- **1.1 GitHub Commit History and File Structure** 
+ **1 GitHub Commit History and File Structure** 
 ![commit History](GitHub_commit.png "commit History")
 
 This project implements a real-time chat system built with Angular, Node.js (Express + Socket.IO), and MongoDB.
@@ -56,7 +57,7 @@ Through these milestones, the project evolved from a simple chat prototype to a 
 
 ---
 
-## **1.2. Data Structures**
+## **2. Data Structures**
 
 This project stores and manages all main entities — Users, Groups, Channels, Messages, and Join Requests — in a MongoDB database.  
 While some entities (Users, Groups, Channels) are defined with Angular models on the client side, others (Messages and Join Requests) are stored directly in MongoDB without separate model files.  
@@ -163,7 +164,7 @@ Messages:[
 ```
 ---
 
-## 1.3. REST API and Socket Communication
+## 3. REST API and Socket Communication
 
 The Angular frontend communicates with the Node.js backend using a combination of **RESTful API routes** and **Socket.IO** for real-time updates.
 
@@ -262,7 +263,7 @@ This enables instant message delivery, user presence updates, and group/channel 
 - Together, they enable a responsive, real-time chat experience that updates across all connected clients simultaneously.
 
 
-### **1.4 Angular Architecture**
+### **4 Angular Architecture**
 
 The Angular frontend follows a modular structure with components, services, and models. The architecture ensures separation of concerns, reactivity, and smooth communication with the Node.js backend using REST APIs and Socket.IO.
 
@@ -435,3 +436,59 @@ The Angular frontend follows a modular structure with components, services, and 
   - `/channel/:id` → ChannelChatComponent
   - `/login` → LoginComponent
   - `/register` → RegisterComponent
+
+ ## **5. Testing**
+
+ **5.1 Route Testing with Mocha, Chai, and Supertest**
+ 
+ For backend route testing, I used Mocha as the test runner, Chai for assertions, and Supertest to simulate HTTP requests to the Node.js Express server.
+ The approach included:
+  - Testing core REST API routes for Users, Groups, Channels, and Messages.
+  - Verifying CRUD operations:
+  - Create, read, update, and delete users, groups, and channels.
+  - Sending and retrieving messages.
+  - Updating user statuses.
+  - Each test first sets up necessary data (e.g., creating a test user or group), runs the API request, then asserts the response status and payload.
+  - After tests, cleanup is done to delete created test data, ensuring isolation between tests.
+    **Result:**
+ ![Route-testing](Route-Testing.png "Route-testing")
+
+ **5.2 Unit Testing with Karma**
+ 
+For frontend unit testing, I used Karma together with Jasmine, which comes pre-configured in Angular projects.
+ - Purpose: Test individual Angular components, services, and pipes in isolation.
+   
+ - Scope:
+   
+	- Ensure methods in services like AuthService, UserService, GroupService return expected values.
+ -	Validate component behavior, like form validation, button clicks, and event emitters.
+ - Workflow: Karma runs tests in a real browser environment and provides a code coverage report.
+ - Command to run tests: ng test
+
+ ![Unit-testing](Unit-Testing-with-Karma.png "Unit-testing")
+
+ **5.3 End-to-End (e2e) Testing with Cypress**
+ 
+For end-to-end testing, I used Cypress to simulate real user interactions in the browser:
+•	Purpose: Test the entire application flow from the UI to the backend.
+
+•	Scope:
+
+  - User registration and login.
+  - Navigating between dashboards, groups, and channels.
+  - Sending and receiving messages in real-time.
+  - Admin features like creating groups, promoting users, and deleting channels.
+  - Workflow: Cypress opens a browser window, runs scripted interactions, and asserts expected outcomes at each step.
+  - Command to run e2e tests:
+**Command:** npx cypress open
+•	Cypress allows visual confirmation of interactions and generates detailed test reports.
+ 
+Summary of Testing Strategy
+
+ - Route tests (Mocha + Chai + Supertest): Verify backend API correctness.
+ - Unit tests (Karma + Jasmine): Ensure Angular components/services behave as expected.
+ - e2e tests (Cypress): Validate the full user experience and integration of frontend and backend.
+This combination ensures a robust, reliable, and maintainable system, catching both backend and frontend errors before deployment.
+
+
+ 
